@@ -71,7 +71,7 @@ def main(args):
       go_file = os.path.join(pydir, basename, 'module.go')
       _PrintRule(go_file,
                  [os.path.join(dirpath, filename)],
-                 ['grumpc -modname={} $< > $@'.format(modname)],
+                 ['grumpc -output=$@ -modname={} $<'.format(modname)],
                  echo_debug=True)
 
       recipe = (r"""pydeps -modname=%s $< | awk '{gsub(/\./, "/", $$0); """
