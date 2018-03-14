@@ -40,7 +40,7 @@ test_requirements = [
 ]
 
 setup(
-    name='grumpy_runtime',
+    name='grumpy-runtime',
     version='0.1.0',
     description="Grumpy Runtime & Transpiler",
     long_description=readme,
@@ -59,6 +59,7 @@ setup(
     license="Apache Software License 2.0",
     zip_safe=False,
     keywords='grumpy_runtime',
+    python_requires='~=2.7.0',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
