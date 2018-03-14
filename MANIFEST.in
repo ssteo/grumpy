@@ -3,8 +3,13 @@ include CONTRIBUTING.md
 include LICENSE
 include README.md
 
+recursive-include runtime *.go
+recursive-include tools *.go
+recursive-include lib *.py
+recursive-include third_party *.py
+
 recursive-include tests *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 
-recursive-include docs *.md conf.py Makefile make.bat *.jpg *.png *.gif
+recursive-include * *.md conf.py Makefile make.bat *.jpg *.png *.gif
