@@ -45,6 +45,8 @@ setup(
     description="Grumpy Runtime & Transpiler",
     long_description=readme,
     author="Dylan Trotter et al.",
+    maintainer="Alan Justino",
+    maintainer_email="alan.justino@yahoo.com.br",
     url='https://github.com/alanjds/grumpy',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     entry_points={
