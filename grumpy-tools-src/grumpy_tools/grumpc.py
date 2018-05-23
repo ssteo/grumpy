@@ -22,6 +22,7 @@ from __future__ import unicode_literals
 import argparse
 import os
 import sys
+from StringIO import StringIO
 import textwrap
 
 from .compiler import block
@@ -31,7 +32,7 @@ from .compiler import util
 from .vendor import pythonparser
 
 
-def main(script=None, modname=None):
+def main(script=None, modname=None, pep3147=False):
   assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script,modname)
 
   gopath = os.getenv('GOPATH', None)
@@ -41,19 +42,10 @@ def main(script=None, modname=None):
 
   with open(script) as py_file:
     py_contents = py_file.read()
-  try:
     mod = pythonparser.parse(py_contents)
-  except SyntaxError as e:
-    print >> sys.stderr, '{}: line {}: invalid syntax: {}'.format(
-        e.filename, e.lineno, e.text)
-    return 2
 
   # Do a pass for compiler directives from `from __future__ import *` statements
-  try:
-    future_node, future_features = imputil.parse_future_features(mod)
-  except util.CompileError as e:
-    print >> sys.stderr, str(e)
-    return 2
+  future_node, future_features = imputil.parse_future_features(mod)
 
   importer = imputil.Importer(gopath, modname, script,
                               future_features.absolute_import)
@@ -64,13 +56,10 @@ def main(script=None, modname=None):
   visitor = stmt.StatementVisitor(mod_block, future_node)
   # Indent so that the module body is aligned with the goto labels.
   with visitor.writer.indent_block():
-    try:
-      visitor.visit(mod)
-    except util.ParseError as e:
-      print >> sys.stderr, str(e)
-      return 2
+    visitor.visit(mod)
 
-  writer = util.Writer(sys.stdout)
+  file_buffer = StringIO()
+  writer = util.Writer(file_buffer)
   tmpl = textwrap.dedent("""\
       package $package
       import πg "grumpy"
@@ -91,4 +80,6 @@ def main(script=None, modname=None):
     \t})
     \tπg.RegisterModule($modname, Code)
     }"""), modname=util.go_str(modname))
-  return 0
+
+  file_buffer.seek(0)
+  return file_buffer.read()
