@@ -3,6 +3,8 @@
 
 """Tests for `grumpy_tools` package."""
 
+import unittest
+
 import pytest
 
 from click.testing import CliRunner
@@ -35,3 +37,12 @@ def test_command_line_interface():
     help_result = runner.invoke(cli.main, ['--help'])
     assert help_result.exit_code == 0
     assert '--help  Show this message and exit.' in help_result.output
+
+
+def test_run_input_inline(capfd):
+    runner = CliRunner()
+    result = runner.invoke(cli.main, ['run', '-c', "print('Hello World')",])
+    # import wdb; wdb.set_trace()
+    out, err = capfd.readouterr()
+    assert out.strip() == 'Hello World'
+    assert result.exit_code == 0

@@ -3,6 +3,7 @@
 """Console script for grumpy_tools."""
 import os
 import sys
+from StringIO import StringIO
 from pkg_resources import resource_filename, Requirement, DistributionNotFound
 
 import click
@@ -28,8 +29,11 @@ def transpile(script=None, modname=None):
 
 
 @main.command('run')
-@click.option('-m', '-modname', '--modname', help='Run the named module')
-def run(modname=None):
+@click.argument('file', required=False, type=click.File('rb'))
+@click.option('-c', '--cmd', help='Program passed in as string')
+@click.option('-m', '-modname', '--modname', help='Run run library module as a script')
+@click.option('--pep3147', is_flag=True, help='Put the transpiled outputs on a __pycache__ folder')
+def run(file=None, cmd=None, modname=None, pep3147=False):
     environ_gopath = os.environ.get('GOPATH', '')
 
     try:
@@ -50,7 +54,19 @@ def run(modname=None):
         raise click.ClickException("Could not found the Grumpy Runtime 'data/gopath' resource.\n"
                                    "Is 'grumpy-runtime' package installed?")
 
-    result = grumprun.main(modname=modname)
+    if modname:
+        stream = None
+    elif file:
+        stream = StringIO(file.read())
+    elif cmd:
+        stream = StringIO(cmd)
+    else:   # Read from STDIN
+        stream = StringIO(click.get_text_stream('stdin').read())
+
+    if stream is not None:
+        stream.seek(0)
+
+    result = grumprun.main(stream=stream, modname=modname, pep3147=pep3147)
     sys.exit(result)
 
 
