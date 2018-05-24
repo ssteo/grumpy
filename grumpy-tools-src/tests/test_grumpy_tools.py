@@ -66,3 +66,6 @@ def test_run_input_file(capfd):
 
         result = runner.invoke(cli.main, ['run', script_file.name])
 
+    out, err = capfd.readouterr()
+    assert out == 'Hello World\n'
+    assert result.exit_code == 0
