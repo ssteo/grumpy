@@ -1,0 +1,19 @@
+[run]
+branch = True
+include =
+    ./*
+omit =
+    .*
+    venv/*
+    */tests*
+    */migrations/*
+    project/environments/*
+    .git
+    conf/*
+
+[report]
+#skip_covered = True
+
+[html]
+directory = .coverage_html
+
