@@ -37,8 +37,7 @@ def main(script=None, modname=None, pep3147=False):
 
   gopath = os.getenv('GOPATH', None)
   if not gopath:
-    print >> sys.stderr, 'GOPATH not set'
-    return 1
+    raise RuntimeError('GOPATH not set')
 
   with open(script) as py_file:
     py_contents = py_file.read()
