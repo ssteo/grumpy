@@ -64,8 +64,7 @@ def main(stream=None, modname=None, pep3147=False):
         if script:
           break
       else:
-        print >> sys.stderr, "can't find module", modname
-        return 1
+        raise RuntimeError("can't find module '%s'", modname)
     else:
       # Generate a dummy python script on the GOPATH.
       modname = ''.join(random.choice(string.ascii_letters) for _ in range(16))
