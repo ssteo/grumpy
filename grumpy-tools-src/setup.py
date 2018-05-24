@@ -38,7 +38,8 @@ setup_requirements = [
 ]
 
 test_requirements = [
-    'pytest',
+    'pytest>=3.3',
+    'pytest-cov>=2.5.1',
     # TODO: Put package test requirements here
 ]
 
