@@ -3,6 +3,7 @@
 
 """Tests for `grumpy_tools` package."""
 
+import tempfile
 import unittest
 
 import pytest
@@ -46,3 +47,22 @@ def test_run_input_inline(capfd):
     out, err = capfd.readouterr()
     assert out.strip() == 'Hello World'
     assert result.exit_code == 0
+
+
+def test_run_input_stdin(capfd):
+    runner = CliRunner()
+    result = runner.invoke(cli.main, ['run'], input="print('Hello World')")
+
+    out, err = capfd.readouterr()
+    assert out == 'Hello World\n'
+    assert result.exit_code == 0
+
+
+def test_run_input_file(capfd):
+    runner = CliRunner()
+    with tempfile.NamedTemporaryFile() as script_file:
+        script_file.write("print('Hello World')")
+        script_file.flush()
+
+        result = runner.invoke(cli.main, ['run', script_file.name])
+
