@@ -45,7 +45,7 @@ def test_run_input_inline(capfd):
     result = runner.invoke(cli.main, ['run', '-c', "print('Hello World')",])
     # import wdb; wdb.set_trace()
     out, err = capfd.readouterr()
-    assert out.strip() == 'Hello World'
+    assert out == 'Hello World\n'
     assert result.exit_code == 0
 
 
