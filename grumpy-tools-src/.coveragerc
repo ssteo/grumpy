@@ -3,7 +3,7 @@ branch = True
 include =
     ./*
 omit =
-    .*
+    #.*
     venv/*
     */tests*
     */migrations/*
