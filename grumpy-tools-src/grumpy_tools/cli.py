@@ -60,6 +60,7 @@ def run(file=None, cmd=None, modname=None, pep3147=False):
         stream = None
     elif file:
         stream = StringIO(file.read())
+        stream.name = file.name
     elif cmd:
         stream = StringIO(cmd)
     else:   # Read from STDIN
