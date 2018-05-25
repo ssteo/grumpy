@@ -30,6 +30,7 @@ import sys
 import tempfile
 
 from .compiler import imputil
+from .pep_support.pep3147pycache import make_transpiled_module_folders
 from . import grumpc
 
 
@@ -54,7 +55,14 @@ def main(stream=None, modname=None, pep3147=False):
     print >> sys.stderr, 'GOPATH not set'
     return 1
 
-  workdir = tempfile.mkdtemp()
+  dummy_modname = '__grumpy__main__.py'
+
+  if pep3147:
+    # CPython does not cache the __main__. Should I?
+    workdir = make_transpiled_module_folders(dummy_modname)['transpiled_base_folder']
+  else:
+    workdir = tempfile.mkdtemp()
+
   try:
     if modname:
       # Find the script associated with the given module.
@@ -67,15 +75,20 @@ def main(stream=None, modname=None, pep3147=False):
         raise RuntimeError("can't find module '%s'", modname)
     else:
       # Generate a dummy python script on the GOPATH.
-      modname = ''.join(random.choice(string.ascii_letters) for _ in range(16))
+      if pep3147:
+        modname = dummy_modname.replace('.py', '')
+      else:
+        modname = ''.join(random.choice(string.ascii_letters) for _ in range(16))
+
       py_dir = os.path.join(workdir, 'src', '__python__')
       mod_dir = os.path.join(py_dir, modname)
-      os.makedirs(mod_dir)
+      if not os.path.exists(mod_dir):
+        os.makedirs(mod_dir)
       script = os.path.join(py_dir, 'module.py')
       with open(script, 'w') as f:
         f.write(stream.read())
-      gopath = gopath + os.pathsep + workdir
-      os.putenv('GOPATH', gopath)
+      os.environ['GOPATH'] = gopath + os.pathsep + workdir
+
       # Compile the dummy script to Go using grumpc.
       with open(os.path.join(mod_dir, 'module.go'), 'w+') as dummy_file:
         transpiled = grumpc.main(script, modname=modname, pep3147=True)
@@ -91,7 +104,8 @@ def main(stream=None, modname=None, pep3147=False):
       f.write(module_tmpl.substitute(package=package, imports=imports))
     return subprocess.Popen('go run ' + go_main, shell=True).wait()
   finally:
-    shutil.rmtree(workdir)
+    if not pep3147:
+      shutil.rmtree(workdir)
 
 
 def _package_name(modname):
