@@ -48,7 +48,7 @@ def run(file=None, cmd=None, modname=None, pep3147=False):
 
     if runtime_gopath and runtime_gopath not in environ_gopath:
         gopaths = environ_gopath.split(':') + [runtime_gopath]
-        new_gopath = ':'.join([p for p in gopaths if p])  # Filter empty ones
+        new_gopath = os.pathsep.join([p for p in gopaths if p])  # Filter empty ones
         if new_gopath:
             os.environ['GOPATH'] = new_gopath
 
