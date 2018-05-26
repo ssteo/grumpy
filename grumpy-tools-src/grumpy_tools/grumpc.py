@@ -33,16 +33,17 @@ from .vendor import pythonparser
 from .pep_support.pep3147pycache import make_transpiled_module_folders
 
 
-def main(script=None, modname=None, pep3147=False):
+def main(stream=None, modname=None, pep3147=False):
+  script = os.path.abspath(stream.name)
   assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script,modname)
 
   gopath = os.getenv('GOPATH', None)
   if not gopath:
     raise RuntimeError('GOPATH not set')
 
-  with open(script) as py_file:
-    py_contents = py_file.read()
-    mod = pythonparser.parse(py_contents)
+  stream.seek(0)
+  py_contents = stream.read()
+  mod = pythonparser.parse(py_contents)
 
   # Do a pass for compiler directives from `from __future__ import *` statements
   future_node, future_features = imputil.parse_future_features(mod)

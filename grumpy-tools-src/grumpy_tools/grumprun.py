@@ -94,7 +94,7 @@ def main(stream=None, modname=None, pep3147=False):
 
       # Compile the dummy script to Go using grumpc.
       with open(os.path.join(mod_dir, 'module.go'), 'w+') as dummy_file:
-        transpiled = grumpc.main(script, modname=modname, pep3147=True)
+        transpiled = grumpc.main(stream, modname=modname, pep3147=True)
         dummy_file.write(transpiled)
 
     names = imputil.calculate_transitive_deps(modname, script, gopath)
