@@ -57,8 +57,6 @@ def main(stream=None, modname=None, pep3147=False):
     print >> sys.stderr, 'GOPATH not set'
     return 1
 
-  dummy_modname = '__grumpy__main__.py'
-
   if pep3147:
     # CPython does not cache the __main__. Should I?
     pep3147_folders = make_transpiled_module_folders(stream.name)
