@@ -34,8 +34,7 @@ def transpile(script=None, modname=None, pep3147=False):
 @click.argument('file', required=False, type=click.File('rb'))
 @click.option('-c', '--cmd', help='Program passed in as string')
 @click.option('-m', '-modname', '--modname', help='Run run library module as a script')
-@click.option('--pep3147', is_flag=True, help='Put the transpiled outputs on a __pycache__ folder')
-def run(file=None, cmd=None, modname=None, pep3147=False):
+def run(file=None, cmd=None, modname=None, pep3147=True):
     environ_gopath = os.environ.get('GOPATH', '')
 
     try:
