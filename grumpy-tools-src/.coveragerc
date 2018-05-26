@@ -11,6 +11,7 @@ omit =
     project/environments/*
     .git
     conf/*
+    grumpy_tools/vendor/
 
 [report]
 #skip_covered = True
