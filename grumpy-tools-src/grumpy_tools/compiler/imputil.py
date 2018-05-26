@@ -67,15 +67,14 @@ class Importer(algorithm.Visitor):
       self.pathdirs.extend(os.path.join(d, 'src', '__python__')
                            for d in gopath.split(os.pathsep))
     dirname, basename = os.path.split(script)
+    self.package_dir = dirname
+
     if basename == '__init__.py':
-      self.package_dir = dirname
       self.package_name = modname
     elif (modname.find('.') != -1 and
           os.path.isfile(os.path.join(dirname, '__init__.py'))):
-      self.package_dir = dirname
       self.package_name = modname[:modname.rfind('.')]
     else:
-      self.package_dir = None
       self.package_name = None
     self.absolute_import = absolute_import
 
