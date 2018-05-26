@@ -30,6 +30,7 @@ from .compiler import imputil
 from .compiler import stmt
 from .compiler import util
 from .vendor import pythonparser
+from .pep_support.pep3147pycache import make_transpiled_module_folders
 
 
 def main(script=None, modname=None, pep3147=False):
@@ -80,5 +81,10 @@ def main(script=None, modname=None, pep3147=False):
     \tπg.RegisterModule($modname, Code)
     }"""), modname=util.go_str(modname))
 
+  if pep3147:
+    file_buffer.seek(0)
+    new_gopath = make_transpiled_module_folders(script)['gopath_folder']
+    if new_gopath not in os.environ['GOPATH'].split(os.pathsep):
+      os.environ['GOPATH'] += os.pathsep + new_gopath
   file_buffer.seek(0)
   return file_buffer.read()
