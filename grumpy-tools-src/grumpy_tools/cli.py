@@ -18,14 +18,14 @@ def main(args=None):
 
 
 @main.command('transpile')
-@click.argument('script')
+@click.argument('script', type=click.File('rb'))
 @click.option('-m', '-modname', '--modname', default='__main__', help='Python module name')
 @click.option('--pep3147', is_flag=True, help='Put the transpiled outputs on a __pycache__ folder')
 def transpile(script=None, modname=None, pep3147=False):
     """
     Translates the python SCRIPT file to Go, then prints to stdout
     """
-    output = grumpc.main(script=script, modname=modname, pep3147=pep3147)
+    output = grumpc.main(stream=script, modname=modname, pep3147=pep3147)
     click.echo(output)
     sys.exit(0)
 
