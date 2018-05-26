@@ -60,7 +60,6 @@ def run(file=None, cmd=None, modname=None, pep3147=False):
         stream = None
     elif file:
         stream = StringIO(file.read())
-        stream.name = file.name
     elif cmd:
         stream = StringIO(cmd)
     else:   # Read from STDIN
@@ -68,6 +67,7 @@ def run(file=None, cmd=None, modname=None, pep3147=False):
 
     if stream is not None:
         stream.seek(0)
+        stream.name = '__main__.py'
 
     result = grumprun.main(stream=stream, modname=modname, pep3147=pep3147)
     sys.exit(result)

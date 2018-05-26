@@ -50,6 +50,8 @@ func main() {
 
 
 def main(stream=None, modname=None, pep3147=False):
+  assert stream is None or stream.name
+
   gopath = os.getenv('GOPATH', None)
   if not gopath:
     print >> sys.stderr, 'GOPATH not set'
@@ -59,7 +61,8 @@ def main(stream=None, modname=None, pep3147=False):
 
   if pep3147:
     # CPython does not cache the __main__. Should I?
-    workdir = make_transpiled_module_folders(dummy_modname)['transpiled_base_folder']
+    pep3147_folders = make_transpiled_module_folders(stream.name)
+    workdir = pep3147_folders['transpiled_base_folder']
   else:
     workdir = tempfile.mkdtemp()
 
@@ -76,7 +79,7 @@ def main(stream=None, modname=None, pep3147=False):
     else:
       # Generate a dummy python script on the GOPATH.
       if pep3147:
-        modname = dummy_modname.replace('.py', '')
+        modname = '__main__'
       else:
         modname = ''.join(random.choice(string.ascii_letters) for _ in range(16))
 
