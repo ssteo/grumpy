@@ -78,7 +78,7 @@ def run(file=None, cmd=None, modname=None, pep3147=False):
 @click.option('-m', '-modname', '--modname', default='__main__', help='Python module name')
 def depends(script=None, modname=None):
     """
-    Translates the python SCRIPT file to Go, then prints to stdout
+    Discover with modules are needed to run the 'script' provided
     """
     result = pydeps.main(script=script, modname=modname)
     sys.exit(result)
