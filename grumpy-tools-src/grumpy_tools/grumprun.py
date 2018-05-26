@@ -82,12 +82,20 @@ def main(stream=None, modname=None, pep3147=False):
         modname = ''.join(random.choice(string.ascii_letters) for _ in range(16))
 
       py_dir = os.path.join(workdir, 'src', '__python__')
-      mod_dir = os.path.join(py_dir, modname)
-      if not os.path.exists(mod_dir):
-        os.makedirs(mod_dir)
-      script = os.path.join(py_dir, 'module.py')
-      with open(script, 'w') as f:
-        f.write(stream.read())
+      script = os.path.abspath(stream.name)
+      if pep3147:
+        mod_dir = pep3147_folders['transpiled_module_folder']
+      else:
+        mod_dir = os.path.dirname(script)
+        if not os.path.exists(mod_dir):
+          os.makedirs(mod_dir)
+
+      ## TODO: Manage the STDIN and `-c` scripts situation
+      # script = os.path.join(py_dir, 'module.py')
+      # with open(script, 'w') as f:
+      #   f.write(stream.read())
+      ##
+
       os.environ['GOPATH'] = gopath + os.pathsep + workdir
 
       # Compile the dummy script to Go using grumpc.
