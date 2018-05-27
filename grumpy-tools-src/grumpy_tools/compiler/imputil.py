@@ -75,7 +75,7 @@ class Importer(algorithm.Visitor):
           os.path.isfile(os.path.join(dirname, '__init__.py'))):
       self.package_name = modname[:modname.rfind('.')]
     else:
-      self.package_name = None
+      self.package_name = ''
     self.absolute_import = absolute_import
 
   def generic_visit(self, node):
