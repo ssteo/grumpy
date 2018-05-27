@@ -50,6 +50,7 @@ func main() {
 
 
 def main(stream=None, modname=None, pep3147=False):
+  assert pep3147, 'It is no longer optional'
   assert stream is None or stream.name
 
   gopath = os.getenv('GOPATH', None)
@@ -57,12 +58,9 @@ def main(stream=None, modname=None, pep3147=False):
     print >> sys.stderr, 'GOPATH not set'
     return 1
 
-  if pep3147:
-    # CPython does not cache the __main__. Should I?
-    pep3147_folders = make_transpiled_module_folders(stream.name)
-    workdir = pep3147_folders['transpiled_base_folder']
-  else:
-    workdir = tempfile.mkdtemp()
+  # CPython does not cache the __main__. Should I?
+  pep3147_folders = make_transpiled_module_folders(stream.name)
+  workdir = pep3147_folders['transpiled_base_folder']
 
   try:
     if modname:
@@ -76,19 +74,11 @@ def main(stream=None, modname=None, pep3147=False):
         raise RuntimeError("can't find module '%s'", modname)
     else:
       # Generate a dummy python script on the GOPATH.
-      if pep3147:
-        modname = '__main__'
-      else:
-        modname = ''.join(random.choice(string.ascii_letters) for _ in range(16))
+      modname = '__main__'
 
       py_dir = os.path.join(workdir, 'src', '__python__')
       script = os.path.abspath(stream.name)
-      if pep3147:
-        mod_dir = pep3147_folders['transpiled_module_folder']
-      else:
-        mod_dir = os.path.dirname(script)
-        if not os.path.exists(mod_dir):
-          os.makedirs(mod_dir)
+      mod_dir = pep3147_folders['transpiled_module_folder']
 
       ## TODO: Manage the STDIN and `-c` scripts situation
       # script = os.path.join(py_dir, 'module.py')
@@ -113,8 +103,7 @@ def main(stream=None, modname=None, pep3147=False):
       f.write(module_tmpl.substitute(package=package, imports=imports))
     return subprocess.Popen('go run ' + go_main, shell=True).wait()
   finally:
-    if not pep3147:
-      shutil.rmtree(workdir)
+    pass
 
 
 def _package_name(modname):
