@@ -73,8 +73,12 @@ def main(stream=None, modname=None, pep3147=False):
       else:
         raise RuntimeError("can't find module '%s'", modname)
     else:
-      # Generate a dummy python script on the GOPATH.
+      # Generate a dummy python script on the 'cache_folder'
       modname = '__main__'
+      script_name = os.path.join(pep3147_folders['cache_folder'], stream.name)
+      with open(script_name, 'wb') as script_file:
+        stream.seek(0)
+        script_file.write(stream.read())
 
       py_dir = os.path.join(workdir, 'src', '__python__')
       script = os.path.abspath(stream.name)
