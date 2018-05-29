@@ -28,6 +28,9 @@ from grumpy_tools.compiler import shard_test
 from grumpy_tools.compiler import stmt
 from grumpy_tools.vendor import pythonparser
 
+# Handles "Set self.maxDiff to None to see it" annoyance
+unittest.TestCase.maxDiff = None
+
 
 def _MakeExprTest(expr):
   def Test(self):
