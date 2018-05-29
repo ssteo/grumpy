@@ -41,6 +41,8 @@ def main(stream=None, modname=None, pep3147=False):
   if not gopath:
     raise RuntimeError('GOPATH not set')
 
+  pep3147_folders = make_transpiled_module_folders(script)
+
   stream.seek(0)
   py_contents = stream.read()
   mod = pythonparser.parse(py_contents)
@@ -59,18 +61,32 @@ def main(stream=None, modname=None, pep3147=False):
   with visitor.writer.indent_block():
     visitor.visit(mod)
 
+  if os.path.exists(script):
+    deps = imputil.calculate_transitive_deps(modname, script, gopath)
+  else:
+    deps = imputil.calculate_transitive_deps(
+      modname,
+      os.path.join(pep3147_folders['cache_folder'], os.path.basename(script)),
+      gopath,
+    )
+
+  imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
+
   file_buffer = StringIO()
   writer = util.Writer(file_buffer)
   tmpl = textwrap.dedent("""\
       package $package
-      import πg "grumpy"
+      import (
+      \tπg "grumpy"
+      $imports
+      )
       var Code *πg.Code
       func init() {
       \tCode = πg.NewCode("<module>", $script, nil, 0, func(πF *πg.Frame, _ []*πg.Object) (*πg.Object, *πg.BaseException) {
       \t\tvar πR *πg.Object; _ = πR
       \t\tvar πE *πg.BaseException; _ = πE""")
   writer.write_tmpl(tmpl, package=modname.split('.')[-1],
-                    script=util.go_str(script))
+                    script=util.go_str(script), imports=imports)
   with writer.indent_block(2):
     for s in sorted(mod_block.strings):
       writer.write('ß{} := πg.InternStr({})'.format(s, util.go_str(s)))
@@ -89,3 +105,9 @@ def main(stream=None, modname=None, pep3147=False):
       os.environ['GOPATH'] += os.pathsep + new_gopath
   file_buffer.seek(0)
   return file_buffer.read()
+
+
+def _package_name(modname):
+  if modname.startswith('__go__/'):
+    return '__python__/' + modname
+  return '__python__/' + modname.replace('.', '/')

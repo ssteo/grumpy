@@ -97,9 +97,8 @@ def main(stream=None, modname=None, pep3147=False):
         transpiled = grumpc.main(stream, modname=modname, pep3147=True)
         dummy_file.write(transpiled)
 
-    names = set() # TODO: Fix what this does -> imputil.calculate_transitive_deps(modname, script, gopath)
     # Make sure traceback is available in all Python binaries.
-    names.add('traceback')
+    names = set(['traceback'])
     go_main = os.path.join(workdir, 'main.go')
     package = _package_name(modname)
     imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in names)
