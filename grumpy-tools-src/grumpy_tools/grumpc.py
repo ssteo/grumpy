@@ -65,6 +65,10 @@ def main(stream=None, modname=None, pep3147=False):
   if os.path.exists(script):
     deps = pydeps.main(script, modname) #, script, gopath)
   else:
+    deps = pydeps.main(
+      os.path.join(pep3147_folders['cache_folder'], os.path.basename(script)),
+      modname,
+    )
     deps = imputil.calculate_transitive_deps(
       modname,
       os.path.join(pep3147_folders['cache_folder'], os.path.basename(script)),
