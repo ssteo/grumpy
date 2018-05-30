@@ -31,14 +31,14 @@ def main(script=None, modname=None):
 
   names = set([modname])
   for imp in imports:
-    if imp.is_native:
+    if imp.is_native and imp.name:
       yield imp.name
     else:
       parts = imp.name.split('.')
       # Iterate over all packages and the leaf module.
       for i in xrange(len(parts)):
         name = '.'.join(parts[:i+1])
-        if name not in names:
+        if name and name not in names:
           names.add(name)
           yield name
 
