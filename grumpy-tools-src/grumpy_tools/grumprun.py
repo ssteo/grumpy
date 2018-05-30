@@ -56,9 +56,6 @@ def main(stream=None, modname=None, pep3147=False):
   gopath = os.environ['GOPATH']
 
   # CPython does not cache the __main__. Should I?
-  pep3147_folders = make_transpiled_module_folders(stream.name)
-  workdir = pep3147_folders['transpiled_base_folder']
-
   try:
     if modname:
       # Find the script associated with the given module.
@@ -69,7 +66,12 @@ def main(stream=None, modname=None, pep3147=False):
           break
       else:
         raise RuntimeError("can't find module '%s'", modname)
+      pep3147_folders = make_transpiled_module_folders(script)
+      workdir = pep3147_folders['transpiled_base_folder']
     else:
+      pep3147_folders = make_transpiled_module_folders(stream.name)
+      workdir = pep3147_folders['transpiled_base_folder']
+
       # Generate a dummy python script on the 'cache_folder'
       modname = '__main__'
       script_name = os.path.join(pep3147_folders['cache_folder'], stream.name)
