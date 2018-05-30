@@ -28,6 +28,7 @@ import string
 import subprocess
 import sys
 import tempfile
+from StringIO import StringIO
 
 from .compiler import imputil
 from .pep_support.pep3147pycache import make_transpiled_module_folders
@@ -57,7 +58,7 @@ def main(stream=None, modname=None, pep3147=False):
 
   # CPython does not cache the __main__. Should I?
   try:
-    if modname and not stream:
+    if modname and not stream:  # TODO: move all this `if modname` to the CLI handling?
       # Find the script associated with the given module.
       for d in gopath.split(os.pathsep):
         script = imputil.find_script(
@@ -66,15 +67,16 @@ def main(stream=None, modname=None, pep3147=False):
           break
       else:
         raise RuntimeError("can't find module '%s'", modname)
-      stream = open(script)
-    else:
-      script = os.path.abspath(stream.name)
+      stream = StringIO(open(script).read())
+      stream.name = '__main__.py'
+
+    script = os.path.abspath(stream.name)
 
     pep3147_folders = make_transpiled_module_folders(script)
     workdir = pep3147_folders['transpiled_base_folder']
 
     # Generate a dummy python script on the 'cache_folder'
-    modname = modname or '__main__'
+    modname = '__main__'
     script_name = os.path.join(pep3147_folders['cache_folder'], os.path.basename(script))
     with open(script_name, 'wb') as script_file:
       stream.seek(0)
@@ -90,7 +92,8 @@ def main(stream=None, modname=None, pep3147=False):
     #   f.write(stream.read())
     ##
 
-    os.environ['GOPATH'] = gopath + os.pathsep + workdir
+    gopath_folder = pep3147_folders['gopath_folder']
+    os.environ['GOPATH'] = os.pathsep.join([gopath_folder, gopath]) #, workdir])
 
     # Compile the dummy script to Go using grumpc.
     with open(os.path.join(mod_dir, 'module.go'), 'w+') as dummy_file:
