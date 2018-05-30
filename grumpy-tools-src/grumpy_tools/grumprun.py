@@ -66,35 +66,36 @@ def main(stream=None, modname=None, pep3147=False):
           break
       else:
         raise RuntimeError("can't find module '%s'", modname)
-      pep3147_folders = make_transpiled_module_folders(script)
-      workdir = pep3147_folders['transpiled_base_folder']
+      stream = open(script)
     else:
-      pep3147_folders = make_transpiled_module_folders(stream.name)
-      workdir = pep3147_folders['transpiled_base_folder']
-
-      # Generate a dummy python script on the 'cache_folder'
-      modname = '__main__'
-      script_name = os.path.join(pep3147_folders['cache_folder'], stream.name)
-      with open(script_name, 'wb') as script_file:
-        stream.seek(0)
-        script_file.write(stream.read())
-
-      py_dir = os.path.join(workdir, 'src', '__python__')
       script = os.path.abspath(stream.name)
-      mod_dir = pep3147_folders['transpiled_module_folder']
 
-      ## TODO: Manage the STDIN and `-c` scripts situation
-      # script = os.path.join(py_dir, 'module.py')
-      # with open(script, 'w') as f:
-      #   f.write(stream.read())
-      ##
+    pep3147_folders = make_transpiled_module_folders(script)
+    workdir = pep3147_folders['transpiled_base_folder']
 
-      os.environ['GOPATH'] = gopath + os.pathsep + workdir
+    # Generate a dummy python script on the 'cache_folder'
+    modname = modname or '__main__'
+    script_name = os.path.join(pep3147_folders['cache_folder'], os.path.basename(script))
+    with open(script_name, 'wb') as script_file:
+      stream.seek(0)
+      script_file.write(stream.read())
 
-      # Compile the dummy script to Go using grumpc.
-      with open(os.path.join(mod_dir, 'module.go'), 'w+') as dummy_file:
-        transpiled = grumpc.main(stream, modname=modname, pep3147=True)
-        dummy_file.write(transpiled)
+    py_dir = os.path.join(workdir, 'src', '__python__')
+
+    mod_dir = pep3147_folders['transpiled_module_folder']
+
+    ## TODO: Manage the STDIN and `-c` scripts situation
+    # script = os.path.join(py_dir, 'module.py')
+    # with open(script, 'w') as f:
+    #   f.write(stream.read())
+    ##
+
+    os.environ['GOPATH'] = gopath + os.pathsep + workdir
+
+    # Compile the dummy script to Go using grumpc.
+    with open(os.path.join(mod_dir, 'module.go'), 'w+') as dummy_file:
+      transpiled = grumpc.main(stream, modname=modname, pep3147=True)
+      dummy_file.write(transpiled)
 
     # Make sure traceback is available in all Python binaries.
     names = set(['traceback'])
