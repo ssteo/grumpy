@@ -64,8 +64,11 @@ def depends(script=None, modname=None):
     Discover with modules are needed to run the 'script' provided
     """
     _ensure_gopath()
-    result = pydeps.main(script=script, modname=modname)
-    sys.exit(result)
+
+    output = pydeps.main(script=script, modname=modname)
+    for dep in output:
+        click.echo(dep)
+    sys.exit(0)
 
 
 def _ensure_gopath(raises=True):
