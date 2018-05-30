@@ -53,10 +53,7 @@ def main(stream=None, modname=None, pep3147=False):
   assert pep3147, 'It is no longer optional'
   assert stream is None or stream.name
 
-  gopath = os.getenv('GOPATH', None)
-  if not gopath:
-    print >> sys.stderr, 'GOPATH not set'
-    return 1
+  gopath = os.environ['GOPATH']
 
   # CPython does not cache the __main__. Should I?
   pep3147_folders = make_transpiled_module_folders(stream.name)
