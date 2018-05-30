@@ -31,6 +31,7 @@ from .compiler import stmt
 from .compiler import util
 from .vendor import pythonparser
 from .pep_support.pep3147pycache import make_transpiled_module_folders
+from . import pydeps
 
 
 def main(stream=None, modname=None, pep3147=False):
@@ -62,7 +63,7 @@ def main(stream=None, modname=None, pep3147=False):
     visitor.visit(mod)
 
   if os.path.exists(script):
-    deps = imputil.calculate_transitive_deps(modname, script, gopath)
+    deps = pydeps.main(script, modname) #, script, gopath)
   else:
     deps = imputil.calculate_transitive_deps(
       modname,
