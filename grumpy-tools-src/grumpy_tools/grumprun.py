@@ -51,13 +51,13 @@ func main() {
 
 def main(stream=None, modname=None, pep3147=False):
   assert pep3147, 'It is no longer optional'
-  assert stream is None or stream.name
+  assert (stream is None and modname) or (stream.name and not modname)
 
   gopath = os.environ['GOPATH']
 
   # CPython does not cache the __main__. Should I?
   try:
-    if modname:
+    if modname and not stream:
       # Find the script associated with the given module.
       for d in gopath.split(os.pathsep):
         script = imputil.find_script(
