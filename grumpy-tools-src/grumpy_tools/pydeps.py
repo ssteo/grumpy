@@ -25,20 +25,9 @@ from .compiler import util
 
 
 def main(script=None, modname=None):
-  gopath = os.getenv('GOPATH', None)
-  if not gopath:
-    print >> sys.stderr, 'GOPATH not set'
-    return 1
+  gopath = os.environ['GOPATH']
 
-  try:
-    imports = imputil.collect_imports(modname, script, gopath)
-  except SyntaxError as e:
-    print >> sys.stderr, '{}: line {}: invalid syntax: {}'.format(
-        e.filename, e.lineno, e.text)
-    return 2
-  except util.CompileError as e:
-    print >> sys.stderr, str(e)
-    return 2
+  imports = imputil.collect_imports(modname, script, gopath)
 
   names = set([modname])
   for imp in imports:
