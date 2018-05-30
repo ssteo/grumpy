@@ -40,5 +40,7 @@ def main(script=None, modname=None):
         name = '.'.join(parts[:i+1])
         if name and name not in names:
           names.add(name)
+          if name.startswith('.'):
+            name = name[1:]
           yield name
 
