@@ -97,7 +97,7 @@ def main(stream=None, modname=None, pep3147=False):
 
     # Compile the dummy script to Go using grumpc.
     with open(os.path.join(mod_dir, 'module.go'), 'w+') as dummy_file:
-      transpiled = grumpc.main(stream, modname=modname, pep3147=True)
+      transpiled = grumpc.main(stream, modname=modname, pep3147=True, recursive=True)
       dummy_file.write(transpiled)
 
     # Make sure traceback is available in all Python binaries.

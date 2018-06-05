@@ -34,7 +34,7 @@ from .pep_support.pep3147pycache import make_transpiled_module_folders
 from . import pydeps
 
 
-def main(stream=None, modname=None, pep3147=False):
+def main(stream=None, modname=None, pep3147=False, recursive=False):
   script = os.path.abspath(stream.name)
   assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script,modname)
 
@@ -75,12 +75,13 @@ def main(stream=None, modname=None, pep3147=False):
     raise NotImplementedError()
 
   imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
-  for imp_obj in import_objects:
-    if not imp_obj.is_native:
-      # Recursively compile the discovered imports
-      # TODO: Fix cyclic imports?
-      name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
-      main(stream=open(imp_obj.script), modname=name, pep3147='inplace')
+  if recursive:
+    for imp_obj in import_objects:
+      if not imp_obj.is_native:
+        # Recursively compile the discovered imports
+        # TODO: Fix cyclic imports?
+        name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
+        main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True)
 
   file_buffer = StringIO()
   writer = util.Writer(file_buffer)
