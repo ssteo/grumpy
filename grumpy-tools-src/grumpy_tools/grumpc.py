@@ -110,9 +110,13 @@ def main(stream=None, modname=None, pep3147=False):
 
   if pep3147:
     file_buffer.seek(0)
-    new_gopath = make_transpiled_module_folders(script)['gopath_folder']
+    new_gopath = pep3147_folders['gopath_folder']
     if new_gopath not in os.environ['GOPATH'].split(os.pathsep):
       os.environ['GOPATH'] += os.pathsep + new_gopath
+
+    mod_dir = pep3147_folders['transpiled_module_folder']
+    with open(os.path.join(mod_dir, 'module.go'), 'w+') as transpiled_file:
+      transpiled_file.write(file_buffer.read())
   file_buffer.seek(0)
   return file_buffer.read()
 
