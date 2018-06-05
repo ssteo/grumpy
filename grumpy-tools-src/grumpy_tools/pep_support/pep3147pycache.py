@@ -39,7 +39,12 @@ def get_transpiled_base_folder(script_path):
 
 def get_transpiled_module_folder(script_path):
     # TODO: Handle __init__.py scripts. Should create a folder-named path
-    script_basename = script_path.rpartition('.')[0].rpartition('/')[-1]
+    script_paths = script_path.rpartition('.')[0].split('/')
+    if script_path.endswith('__init__.py'):
+        script_basename = script_paths[-2]
+    else:
+        script_basename = script_paths[-1]
+
     transpiled_base_folder = get_transpiled_base_folder(script_path)
     return os.path.join(transpiled_base_folder, script_basename)
 
