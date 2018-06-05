@@ -61,13 +61,13 @@ class Importer(algorithm.Visitor):
 
   # pylint: disable=invalid-name,missing-docstring,no-init
 
-  def __init__(self, gopath, modname, script, absolute_import):
+  def __init__(self, gopath, modname, script, absolute_import, package_dir=''):
     self.pathdirs = []
     if gopath:
       self.pathdirs.extend(os.path.join(d, 'src', '__python__')
                            for d in gopath.split(os.pathsep))
     dirname, basename = os.path.split(script)
-    self.package_dir = dirname
+    self.package_dir = package_dir or dirname
 
     if basename == '__init__.py':
       self.package_name = modname
@@ -192,12 +192,13 @@ class _ImportCollector(algorithm.Visitor):
     self.imports.extend(self.importer.visit(node))
 
 
-def collect_imports(modname, script, gopath):
+def collect_imports(modname, script, gopath, package_dir=''):
   with open(script) as py_file:
     py_contents = py_file.read()
   mod = pythonparser.parse(py_contents)
   future_node, future_features = parse_future_features(mod)
-  importer = Importer(gopath, modname, script, future_features.absolute_import)
+  importer = Importer(gopath, modname, script,
+                      future_features.absolute_import, package_dir=package_dir)
   collector = _ImportCollector(importer, future_node)
   collector.visit(mod)
   return collector.imports
