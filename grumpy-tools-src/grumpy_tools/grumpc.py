@@ -63,19 +63,24 @@ def main(stream=None, modname=None, pep3147=False):
     visitor.visit(mod)
 
   if os.path.exists(script):
-    deps = pydeps.main(script, modname) #, script, gopath)
+    deps, import_objects = pydeps.main(script, modname, with_imports=True) #, script, gopath)
+  elif os.path.exists(os.path.join(pep3147_folders['cache_folder'], os.path.basename(script))):
+    deps, import_objects = pydeps.main(
+      os.path.join(pep3147_folders['cache_folder'], os.path.basename(script)),
+      modname,
+      package_dir=os.path.dirname(script),
+      with_imports=True,
+    )
   else:
-    deps = pydeps.main(
-      os.path.join(pep3147_folders['cache_folder'], os.path.basename(script)),
-      modname,
-    )
-    deps = imputil.calculate_transitive_deps(
-      modname,
-      os.path.join(pep3147_folders['cache_folder'], os.path.basename(script)),
-      gopath,
-    )
+    raise NotImplementedError()
 
   imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
+  for imp_obj in import_objects:
+    if not imp_obj.is_native:
+      # Recursively compile the discovered imports
+      # TODO: Fix cyclic imports?
+      name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
+      main(stream=open(imp_obj.script), modname=name, pep3147='inplace')
 
   file_buffer = StringIO()
   writer = util.Writer(file_buffer)
