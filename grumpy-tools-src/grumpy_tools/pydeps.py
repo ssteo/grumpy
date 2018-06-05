@@ -24,23 +24,29 @@ from .compiler import imputil
 from .compiler import util
 
 
-def main(script=None, modname=None):
+def main(script=None, modname=None, package_dir='', with_imports=False):
   gopath = os.environ['GOPATH']
 
-  imports = imputil.collect_imports(modname, script, gopath)
+  imports = imputil.collect_imports(modname, script, gopath, package_dir=package_dir)
 
-  names = set([modname])
-  for imp in imports:
-    if imp.is_native and imp.name:
-      yield imp.name
-    else:
-      parts = imp.name.split('.')
-      # Iterate over all packages and the leaf module.
-      for i in xrange(len(parts)):
-        name = '.'.join(parts[:i+1])
-        if name and name not in names:
-          names.add(name)
-          if name.startswith('.'):
-            name = name[1:]
-          yield name
+  def _deps():
+    names = set([modname])
+    for imp in imports:
+      if imp.is_native and imp.name:
+        yield imp.name
+      else:
+        parts = imp.name.split('.')
+        # Iterate over all packages and the leaf module.
+        for i in xrange(len(parts)):
+          name = '.'.join(parts[:i+1])
+          if name and name not in names:
+            names.add(name)
+            if name.startswith('.'):
+              name = name[1:]
+            yield name
+
+  if with_imports:
+    return _deps(), imports
+  else:
+    return _deps()
 
