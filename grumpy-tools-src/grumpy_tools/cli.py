@@ -65,7 +65,8 @@ def depends(script=None, modname=None):
     """
     _ensure_gopath()
 
-    output = pydeps.main(script=script, modname=modname)
+    package_dir = os.path.dirname(os.path.abspath(script))
+    output = pydeps.main(script=script, modname=modname, package_dir=package_dir)
     for dep in output:
         click.echo(dep)
     sys.exit(0)
