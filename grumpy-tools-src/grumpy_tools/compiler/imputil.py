@@ -149,7 +149,7 @@ class Importer(algorithm.Visitor):
     if not self.absolute_import and self.package_dir:
       script = find_script(self.package_dir, modname)
       if script:
-        return Import('{}.{}'.format(self.package_name, modname), script)
+        return Import('.'.join((self.package_name, modname)).lstrip('.'), script)
     for dirname in self.pathdirs:
       script = find_script(dirname, modname)
       if script:
