@@ -71,12 +71,12 @@ def main(stream=None, modname=None, pep3147=False):
       stream.name = '__main__.py'
 
     script = os.path.abspath(stream.name)
+    modname = '__main__'
 
-    pep3147_folders = make_transpiled_module_folders(script)
+    pep3147_folders = make_transpiled_module_folders(script, modname)
     workdir = pep3147_folders['transpiled_base_folder']
 
     # Generate a dummy python script on the 'cache_folder'
-    modname = '__main__'
     script_name = os.path.join(pep3147_folders['cache_folder'], os.path.basename(script))
     with open(script_name, 'wb') as script_file:
       stream.seek(0)

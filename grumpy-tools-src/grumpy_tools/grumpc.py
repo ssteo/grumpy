@@ -42,7 +42,7 @@ def main(stream=None, modname=None, pep3147=False, recursive=False):
   if not gopath:
     raise RuntimeError('GOPATH not set')
 
-  pep3147_folders = make_transpiled_module_folders(script)
+  pep3147_folders = make_transpiled_module_folders(script, modname)
 
   stream.seek(0)
   py_contents = stream.read()

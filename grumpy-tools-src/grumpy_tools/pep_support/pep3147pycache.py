@@ -37,7 +37,7 @@ def get_transpiled_base_folder(script_path):
     return os.path.join(gopath_folder, TRANSPILED_MODULES_FOLDER)
 
 
-def get_transpiled_module_folder(script_path):
+def get_transpiled_module_folder(script_path, package_name):
     # TODO: Handle __init__.py scripts. Should create a folder-named path
     script_paths = script_path.rpartition('.')[0].split('/')
     if script_path.endswith('__init__.py'):
@@ -46,10 +46,10 @@ def get_transpiled_module_folder(script_path):
         script_basename = script_paths[-1]
 
     transpiled_base_folder = get_transpiled_base_folder(script_path)
-    return os.path.join(transpiled_base_folder, script_basename)
+    return os.path.join(transpiled_base_folder, *package_name.split('.')) #script_basename)
 
 
-def make_transpiled_module_folders(script_path):
+def make_transpiled_module_folders(script_path, package_name):
     """
     Make the folder to store all the tree needed by the 'script_path' script
 
@@ -59,7 +59,7 @@ def make_transpiled_module_folders(script_path):
         'cache_folder': get_pycache_folder(script_path),
         'gopath_folder': get_gopath_folder(script_path),
         'transpiled_base_folder': get_transpiled_base_folder(script_path),
-        'transpiled_module_folder': get_transpiled_module_folder(script_path),
+        'transpiled_module_folder': get_transpiled_module_folder(script_path, package_name),
     }
     for role, folder in needed_folders.items():
         if os.path.isfile(folder):  # 1. Need a folder. Remove the file
