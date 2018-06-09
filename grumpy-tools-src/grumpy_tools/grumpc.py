@@ -74,6 +74,8 @@ def main(stream=None, modname=None, pep3147=False, recursive=False):
   else:
     raise NotImplementedError()
 
+  deps = set(deps).difference(_get_parent_packages(modname))
+
   imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
   if recursive:
     for imp_obj in import_objects:
@@ -126,3 +128,11 @@ def _package_name(modname):
   if modname.startswith('__go__/'):
     return '__python__/' + modname
   return '__python__/' + modname.replace('.', '/')
+
+
+def _get_parent_packages(modname):
+  package_parts = modname.split('.')
+  parent_parts = package_parts[:-1]
+  parent_packages = set()
+  for i, _ in enumerate(parent_parts):
+    yield '.'.join(parent_parts[:(-i or None)])
