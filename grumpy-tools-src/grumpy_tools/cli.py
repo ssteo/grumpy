@@ -19,7 +19,7 @@ from . import grumpc, grumprun, pydeps
 
 
 @click.group('grumpy')
-@click_log.simple_verbosity_option(logger)
+@click_log.simple_verbosity_option(logger, default='WARNING')
 def main(args=None):
     """Console script for grumpy_tools."""
     return 0
