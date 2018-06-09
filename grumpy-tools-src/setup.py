@@ -31,6 +31,7 @@ requirements = [
     # TODO: Put package requirements here
     'importlib2>=3.5.0.2',
     'click-default-group>=1.2',
+    'click-log>=0.3.2',
 ]
 
 setup_requirements = [

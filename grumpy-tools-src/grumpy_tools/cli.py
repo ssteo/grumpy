@@ -5,13 +5,21 @@ import os
 import sys
 from StringIO import StringIO
 from pkg_resources import resource_filename, Requirement, DistributionNotFound
+import logging
+logger = logging.getLogger(__package__)
 
 import click
+import click_log
+from click_log.core import ColorFormatter
+ColorFormatter.colors['info'] = {'fg': 'green'}
+click_log.basic_config(logger)
+logger.propagate = True
 
 from . import grumpc, grumprun, pydeps
 
 
 @click.group('grumpy')
+@click_log.simple_verbosity_option(logger)
 def main(args=None):
     """Console script for grumpy_tools."""
     return 0
@@ -92,6 +100,7 @@ def _ensure_gopath(raises=True):
     if raises and not runtime_gopath and not environ_gopath:
         raise click.ClickException("Could not found the Grumpy Runtime 'data/gopath' resource.\n"
                                    "Is 'grumpy-runtime' package installed?")
+    logger.info("GOPATH: %s", os.environ.get("GOPATH"))
 
 
 if __name__ == "__main__":

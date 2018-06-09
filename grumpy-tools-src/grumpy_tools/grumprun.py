@@ -28,12 +28,14 @@ import string
 import subprocess
 import sys
 import tempfile
+import logging
 from StringIO import StringIO
 
 from .compiler import imputil
 from .pep_support.pep3147pycache import make_transpiled_module_folders
 from . import grumpc
 
+logger = logging.getLogger(__name__)
 
 module_tmpl = string.Template("""\
 package main
@@ -107,6 +109,7 @@ def main(stream=None, modname=None, pep3147=False):
     imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in names)
     with open(go_main, 'w') as f:
       f.write(module_tmpl.substitute(package=package, imports=imports))
+    logger.info('`go run` GOPATH=%s', os.environ['GOPATH'])
     return subprocess.Popen('go run ' + go_main, shell=True).wait()
   finally:
     pass
