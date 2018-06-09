@@ -110,6 +110,7 @@ def main(stream=None, modname=None, pep3147=False):
     with open(go_main, 'w') as f:
       f.write(module_tmpl.substitute(package=package, imports=imports))
     logger.info('`go run` GOPATH=%s', os.environ['GOPATH'])
+    logger.debug('Starting subprocess: `go run %s`', go_main)
     return subprocess.Popen('go run ' + go_main, shell=True).wait()
   finally:
     pass
