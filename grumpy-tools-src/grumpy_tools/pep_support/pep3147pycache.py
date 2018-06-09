@@ -63,6 +63,8 @@ def link_parent_modules(script_path, module_name):
         parent_script = os.path.join(*script_parts[:(-i or None)])
         parent_package = '.'.join(package_parts[:(-i or None)])
         parent_package_script = imputil.find_script(parent_package, parent_script)
+        if not parent_package_script:
+            continue
         parent_module_folder = get_transpiled_module_folder(parent_package_script, parent_package)
         local_parent_module_folder = get_transpiled_module_folder(script_path, parent_package)
 
