@@ -72,7 +72,7 @@ COMMON_OPTIONS = dict(
 
 
 def _run_make(self, *args, **kwargs):
-    subprocess.check_call(["""echo "print 'Make Runtime Success'" | make run --debug=a -r"""], shell=True)
+    subprocess.check_call(["""echo "print 'Make Runtime Success'" | make run --debug=bjm -r"""], shell=True)
 
 
 def _glob_deep(directory, pattern):
