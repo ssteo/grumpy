@@ -36,7 +36,7 @@ from . import pydeps
 
 def main(stream=None, modname=None, pep3147=False, recursive=False):
   script = os.path.abspath(stream.name)
-  assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script,modname)
+  assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script, modname)
 
   gopath = os.getenv('GOPATH', None)
   if not gopath:
