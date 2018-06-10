@@ -24,7 +24,7 @@ script:
   - cd ../grumpy-tools-src
   - pytest
   - cd ../grumpy-runtime-src
-  - make gofmt lint && make -j2 test
+  - make gofmt lint && make -j1 test
 
 # OSX swallows error logs: https://github.com/travis-ci/travis-ci/issues/6018
 after_error:
