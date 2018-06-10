@@ -102,7 +102,12 @@ def _maybe_link_paths(orig, dest):
         os.unlink(dest)
 
     if not os.path.exists(dest):
-        os.symlink(relpath, dest)
-        logger.debug('Linked %s to %s', orig, dest)
-        return True
+        try:
+            os.symlink(relpath, dest)
+        except OSError as err:  # Got created on an OS race condition?
+            if 'exists' not in str(err):
+                raise
+        else:
+            logger.debug('Linked %s to %s', orig, dest)
+            return True
     return False
