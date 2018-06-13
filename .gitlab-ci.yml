@@ -13,16 +13,16 @@ stages:
   - build
 
 before_script:
-  - sudo pip2 install pytest pytest-cov
+  - pip2 install pytest pytest-cov
 
 install_and_test:
   stage: test
   script:
     # Install the thing
     - cd grumpy-tools-src
-    - sudo pip2 install .
+    - pip2 install .
     - cd ../grumpy-runtime-src
-    - sudo pip2 install .
+    - pip2 install .
     # Test the thing
     - cd ../grumpy-tools-src
     - pytest
