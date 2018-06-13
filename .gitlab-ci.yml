@@ -13,7 +13,7 @@ stages:
   - build
 
 before_script:
-  - apt-get update && apt-get install -y --no-install-recommends python2 python2-dev python2-setuptools
+  - apt-get update && apt-get install -y --no-install-recommends python2.7 python2.7-dev python-setuptools
   - easy_install pip
   - pip2 install pytest pytest-cov
 
