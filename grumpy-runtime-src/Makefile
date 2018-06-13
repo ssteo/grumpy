@@ -143,7 +143,7 @@ clean:
 	@rm -rf build
 
 clean-pycache:
-	find . -name '__pycache__' -exec rm -f {} +
+	find . -name '__pycache__' -exec rm -fr {} +
 
 # Convenient wrapper around grumprun that avoids having to set up PATH, etc.
 run: $(RUNNER)
