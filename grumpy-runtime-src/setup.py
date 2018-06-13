@@ -75,8 +75,8 @@ def _run_make(self, *args, **kwargs):
     subprocess.check_call(["""echo "print 'Make Runtime Success'" | make run --debug=bjm -r"""], shell=True)
 
 
-def _glob_deep(directory, pattern, blacklisted=None):
-    blacklisted = blacklisted or []
+def _glob_deep(directory, pattern, rmtree=None):
+    rmtree = rmtree or []
 
     # From: https://stackoverflow.com/a/2186673/798575
     for root, dirs, files in os.walk(directory):
@@ -85,6 +85,8 @@ def _glob_deep(directory, pattern, blacklisted=None):
                 filename = os.path.join(root, basename)
                 for filtered_name in blacklisted:
                     if filtered_name in filename:
+                        print('Trying to rmtree', filename)
+                        shutil.rmtree(filename, ignore_errors=True)
                         continue  # Skip this blacklisted one.
                 yield filename
 
@@ -107,7 +109,7 @@ class BuildMakeCommandInstall(BuildPyCommand):  # Ran on setup.py install
             shutil.move('gopath', target_dir)
 
             build_dir = os.path.join(self.build_lib, 'grumpy_runtime')
-            built_files = _glob_deep(os.path.join(build_dir, 'gopath'), '*', blacklisted=['__pycache__'])
+            built_files = _glob_deep(os.path.join(build_dir, 'gopath'), '*', rmtree=['__pycache__'])
 
             # Strip directory from globbed filenames
             build_dir_len = len(build_dir) + 1 # One more for leading "/"
@@ -137,7 +139,7 @@ class BuildMakeCommandDevelop(BuildExtCommand):  # Ran on setup.py develop
             shutil.move('gopath', target_dir)
 
             build_dir = os.path.join(self.build_lib, 'grumpy_runtime')
-            built_files = _glob_deep(os.path.join(build_dir, 'gopath'), '*', blacklisted=['__pycache__'])
+            built_files = _glob_deep(os.path.join(build_dir, 'gopath'), '*', rmtree=['__pycache__'])
 
             # Strip directory from globbed filenames
             build_dir_len = len(build_dir) + 1 # One more for leading "/"
