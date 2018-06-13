@@ -142,6 +142,9 @@ benchmarks: $(BENCHMARK_BINS)
 clean:
 	@rm -rf build
 
+clean-pycache:
+	find . -name '__pycache__' -exec rm -f {} +
+
 # Convenient wrapper around grumprun that avoids having to set up PATH, etc.
 run: $(RUNNER)
 	@$(RUNNER_BIN)

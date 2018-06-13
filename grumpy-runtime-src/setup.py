@@ -73,6 +73,7 @@ COMMON_OPTIONS = dict(
 
 def _run_make(self, *args, **kwargs):
     subprocess.check_call(["""echo "print 'Make Runtime Success'" | make run --debug=bjm -r"""], shell=True)
+    subprocess.check_call(["""make clean-pycache --debug=bjm -r"""], shell=True)
 
 
 def _glob_deep(directory, pattern, rmtree=None):
@@ -117,7 +118,7 @@ class BuildMakeCommandInstall(BuildPyCommand):  # Ran on setup.py install
 
             self.data_files = [
                 # (package, src_dir, build_dir, filenames[])
-                ('grumpy_runtime', 'grumpy_runtime', build_dir, built_files),
+                ('grumpy_runtime', 'grumpy_runtime', build_dir, built_files)
             ]
 
         super_result = BuildPyCommand.run(self, *args, **kwargs)
