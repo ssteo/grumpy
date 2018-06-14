@@ -117,7 +117,14 @@ class _Popen(object):
     # TODO: There should be a cleaner way to create slices in Python.
     args_type = ToNative(__frame__(), StartProcess).Type().In(1)
     args = MakeSlice(args_type, 3, 3).Interface()
-    shell = environ['SHELL']
+
+    # 'shell' is different per environment
+    # See: https://github.com/python/cpython/blob/master/Lib/subprocess.py#L1375-L1378
+    if hasattr(sys, 'getandroidapilevel'):
+        unix_shell = '/system/bin/sh'
+    else:
+        unix_shell = '/bin/sh'
+    shell = environ.get('SHELL', unix_shell)
     args[0] = shell
     args[1] = '-c'
     args[2] = command
