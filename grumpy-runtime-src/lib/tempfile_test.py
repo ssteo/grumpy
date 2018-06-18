@@ -38,12 +38,19 @@ def TestMkdTempDir():
 def TestMkdTempOSError():
   tempdir = tempfile.mkdtemp()
   os.chmod(tempdir, 0o500)
-  try:
-    tempfile.mkdtemp(dir=tempdir)
-  except OSError:
-    pass
+
+  if os.geteuid() == 0:
+    print ('Warning: Cannot reliable test file readonly-ness with Root user')
+    mode = os.stat(tempdir).st_mode
+    assert stat.S_IMODE(mode) == 0o500, 'Wrong file mode "mode" detected' % mode
+
   else:
-    raise AssertionError
+    try:
+      tempfile.mkdtemp(dir=tempdir)
+    except OSError:
+      pass
+    else:
+      raise AssertionError, 'Should not be able to touch 0o500 paths'
   os.rmdir(tempdir)
 
 
@@ -79,12 +86,19 @@ def TestMksTempDir():
 def TestMksTempOSError():
   tempdir = tempfile.mkdtemp()
   os.chmod(tempdir, 0o500)
-  try:
-    tempfile.mkstemp(dir=tempdir)
-  except OSError:
-    pass
+
+  if os.geteuid() == 0:
+    print ('Warning: Cannot reliable test file readonly-ness with Root user')
+    mode = os.stat(tempdir).st_mode
+    assert stat.S_IMODE(mode) == 0o500, 'Wrong file mode "mode" detected' % mode
+
   else:
-    raise AssertionError
+    try:
+      tempfile.mkstemp(dir=tempdir)
+    except OSError:
+      pass
+    else:
+      raise AssertionError
   os.rmdir(tempdir)
 
 
