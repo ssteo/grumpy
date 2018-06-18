@@ -90,7 +90,7 @@ def TestMksTempOSError():
   if os.geteuid() == 0:
     print ('Warning: Cannot reliable test file readonly-ness with Root user')
     mode = os.stat(tempdir).st_mode
-    assert stat.S_IMODE(mode) == 0o500, 'Wrong file mode "mode" detected' % mode
+    assert stat.S_IMODE(mode) == 0o500, ('Wrong file mode "mode" detected' % mode)
 
   else:
     try:
