@@ -16,7 +16,8 @@
 
 # pylint: disable=g-multiple-import
 from '__go__/io/ioutil' import ReadDir
-from '__go__/os' import (Chdir, Chmod, Environ, Getpid as getpid, Getwd, Pipe,
+from '__go__/os' import (Chdir, Chmod, Environ, Getpid as getpid, Getuid as getuid,
+    Geteuid as geteuid, Getgid as getgid, Getegid as getegid, Getwd, Pipe,
     ProcAttr, Remove, StartProcess, Stat, Stdout, Stdin,
     Stderr, Mkdir)
 from '__go__/path/filepath' import Separator
@@ -55,6 +56,14 @@ def chdir(path):
   err = Chdir(path)
   if err:
     raise OSError(err.Error())
+
+
+def fchdir(fd):
+  raise NotImplementedError("Code contributions to implement 'os.fchdir(fd)' are welcome")
+
+
+def ctermid():
+  raise NotImplementedError("Code contributions to implement 'os.ctermid()' are welcome")
 
 
 def chmod(filepath, mode):
