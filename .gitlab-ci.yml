@@ -29,4 +29,4 @@ install_and_test:
     - cd ../grumpy-tools-src
     - pytest
     - cd ../grumpy-runtime-src
-    - make gofmt lint && make -j1 test
+    - make gofmt lint && make -j2 test
