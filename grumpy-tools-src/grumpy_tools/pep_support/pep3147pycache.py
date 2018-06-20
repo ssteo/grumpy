@@ -30,21 +30,26 @@ def get_checksum(stream):
 
 
 def set_checksum(stream, script_path):
-    with open(get_checksum_filename(script_path), 'w') as chk_file:
+    with open(get_checksum_path(script_path), 'w') as chk_file:
         chk_file.write(get_checksum(stream))
 
 
-def should_refresh(stream, script_path, module_name):
-    checksum_filename = get_checksum_path(script_path):
+def should_refresh(stream, script_path, modname):
+    checksum_filename = get_checksum_path(script_path)
     if not os.path.exists(checksum_filename):
+        logger.debug("Should transpile '%s'", modname)
         return True
 
     with open(checksum_filename, 'r+') as checksum_file:
         existing_checksum = checksum_file.read()
 
-    if get_checksum(stream) == existing_checksum:
+    new_checksum = get_checksum(stream)
+    if new_checksum != existing_checksum:
+        logger.debug("Should refresh '%s' (%s)", modname, existing_checksum[:8])
         return True
 
+
+    logger.debug("No need to refresh '%s' (%s)", modname, existing_checksum[:8])
     return False
 
 
