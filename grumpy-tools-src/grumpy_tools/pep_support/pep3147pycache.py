@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import os
 import sys
 import logging
+import hashlib
 
 import importlib2
 import grumpy_tools
@@ -16,6 +17,35 @@ GOPATH_FOLDER = 'gopath'
 TRANSPILED_MODULES_FOLDER = 'src/__python__/'
 GRUMPY_MAGIC_TAG = 'grumpy-' + grumpy_tools.__version__.replace('.', '')  # alike cpython-27
 ORIGINAL_MAGIC_TAG = sys.implementation.cache_tag  # On Py27, only because importlib2
+
+
+def get_checksum_path(script_path):
+    pycache_folder = get_pycache_folder(script_path)
+    return os.path.join(pycache_folder, 'checksum.sha1')
+
+
+def get_checksum(stream):
+    stream.seek(0)
+    return hashlib.sha1(stream.read()).hexdigest()
+
+
+def set_checksum(stream, script_path):
+    with open(get_checksum_filename(script_path), 'w') as chk_file:
+        chk_file.write(get_checksum(stream))
+
+
+def should_refresh(stream, script_path, module_name):
+    checksum_filename = get_checksum_path(script_path):
+    if not os.path.exists(checksum_filename):
+        return True
+
+    with open(checksum_filename, 'r+') as checksum_file:
+        existing_checksum = checksum_file.read()
+
+    if get_checksum(stream) == existing_checksum:
+        return True
+
+    return False
 
 
 def get_pycache_folder(script_path):

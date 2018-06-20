@@ -30,7 +30,7 @@ from .compiler import imputil
 from .compiler import stmt
 from .compiler import util
 from .vendor import pythonparser
-from .pep_support.pep3147pycache import make_transpiled_module_folders
+from .pep_support.pep3147pycache import make_transpiled_module_folders, should_refresh, set_checksum
 from . import pydeps
 
 
@@ -43,6 +43,7 @@ def main(stream=None, modname=None, pep3147=False, recursive=False):
     raise RuntimeError('GOPATH not set')
 
   pep3147_folders = make_transpiled_module_folders(script, modname)
+  will_refresh = should_refresh(stream, modname)
 
   stream.seek(0)
   py_contents = stream.read()
@@ -120,6 +121,7 @@ def main(stream=None, modname=None, pep3147=False, recursive=False):
     mod_dir = pep3147_folders['transpiled_module_folder']
     with open(os.path.join(mod_dir, 'module.go'), 'w+') as transpiled_file:
       transpiled_file.write(file_buffer.read())
+    set_checksum(stream, script_path)
   file_buffer.seek(0)
   return file_buffer.read()
 
