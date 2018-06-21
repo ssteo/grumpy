@@ -70,7 +70,7 @@ def _collect_deps(script, modname, pep3147_folders, from_cache=False, update_cac
         deps, import_objects = pickle.load(deps_dumpfile)
       return deps, import_objects
     except Exception as err:
-      logger.warning("Could not load dependencies of '%s' from file.", modname)
+      logger.warning("Could not load dependencies of '%s' from cache.", modname)
 
   if os.path.exists(script):
     deps, import_objects = pydeps.main(script, modname, with_imports=True) #, script, gopath)
@@ -91,7 +91,7 @@ def _collect_deps(script, modname, pep3147_folders, from_cache=False, update_cac
       with open(pep3147_folders['dependencies_file'], 'wb') as deps_dumpfile:
         pickle.dump((deps, import_objects), deps_dumpfile)
     except Exception as err:
-      logger.warning("Could not store dependencies of '%s' on file: %s", modname, err)
+      logger.warning("Could not store dependencies of '%s' on cache: %s", modname, err)
     else:
       logger.debug("Dependencies file regenerated")
   return deps, import_objects
