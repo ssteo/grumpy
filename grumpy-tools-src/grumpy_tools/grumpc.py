@@ -34,16 +34,8 @@ from .pep_support.pep3147pycache import make_transpiled_module_folders, should_r
 from . import pydeps
 
 
-def main(stream=None, modname=None, pep3147=False, recursive=False):
-  script = os.path.abspath(stream.name)
-  assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script, modname)
-
-  gopath = os.getenv('GOPATH', None)
-  if not gopath:
-    raise RuntimeError('GOPATH not set')
-
-  pep3147_folders = make_transpiled_module_folders(script, modname)
-  will_refresh = should_refresh(stream, script, modname)
+def _parse_and_visit(stream, script, modname):
+  gopath = os.environ['GOPATH']
 
   stream.seek(0)
   py_contents = stream.read()
@@ -62,7 +54,10 @@ def main(stream=None, modname=None, pep3147=False, recursive=False):
   # Indent so that the module body is aligned with the goto labels.
   with visitor.writer.indent_block():
     visitor.visit(mod)
+  return visitor, mod_block
 
+
+def _collect_deps(script, modname, pep3147_folders):
   if os.path.exists(script):
     deps, import_objects = pydeps.main(script, modname, with_imports=True) #, script, gopath)
   elif os.path.exists(os.path.join(pep3147_folders['cache_folder'], os.path.basename(script))):
@@ -76,16 +71,19 @@ def main(stream=None, modname=None, pep3147=False, recursive=False):
     raise NotImplementedError()
 
   deps = set(deps).difference(_get_parent_packages(modname))
+  return deps, import_objects
 
-  imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
-  if recursive:
-    for imp_obj in import_objects:
-      if not imp_obj.is_native:
-        # Recursively compile the discovered imports
-        # TODO: Fix cyclic imports?
-        name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
-        main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True)
 
+def _recursively_transpile(import_objects):
+  for imp_obj in import_objects:
+    if not imp_obj.is_native:
+      # Recursively compile the discovered imports
+      # TODO: Fix cyclic imports?
+      name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
+      main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True)
+
+
+def _transpile(script, modname, imports, visitor, mod_block):
   file_buffer = StringIO()
   writer = util.Writer(file_buffer)
   tmpl = textwrap.dedent("""\
@@ -111,19 +109,48 @@ def main(stream=None, modname=None, pep3147=False, recursive=False):
     \t})
     \tπg.RegisterModule($modname, Code)
     }"""), modname=util.go_str(modname))
+  return file_buffer
+
+
+def main(stream=None, modname=None, pep3147=False, recursive=False, return_result=True):
+  script = os.path.abspath(stream.name)
+  assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script, modname)
+
+  gopath = os.getenv('GOPATH', None)
+  if not gopath:
+    raise RuntimeError('GOPATH not set')
+
+  pep3147_folders = make_transpiled_module_folders(script, modname)
+  will_refresh = should_refresh(stream, script, modname)
+
+  deps, import_objects = _collect_deps(script, modname, pep3147_folders)
+  imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
+
+  if will_refresh or return_result:
+    visitor, mod_block = _parse_and_visit(stream, script, modname)
+    file_buffer = _transpile(script, modname, imports, visitor, mod_block)
+  else:
+    file_buffer = None
+
+  if recursive:
+    _recursively_transpile(import_objects)
 
   if pep3147:
-    file_buffer.seek(0)
     new_gopath = pep3147_folders['gopath_folder']
     if new_gopath not in os.environ['GOPATH'].split(os.pathsep):
       os.environ['GOPATH'] += os.pathsep + new_gopath
 
-    mod_dir = pep3147_folders['transpiled_module_folder']
-    with open(os.path.join(mod_dir, 'module.go'), 'w+') as transpiled_file:
-      transpiled_file.write(file_buffer.read())
-    set_checksum(stream, script)
-  file_buffer.seek(0)
-  return file_buffer.read()
+    if file_buffer:
+      file_buffer.seek(0)
+      mod_dir = pep3147_folders['transpiled_module_folder']
+      with open(os.path.join(mod_dir, 'module.go'), 'w+') as transpiled_file:
+        transpiled_file.write(file_buffer.read())
+      set_checksum(stream, script)
+
+  if return_result:
+    assert file_buffer, "Wrong logic paths. 'file_buffer' should be available here!"
+    file_buffer.seek(0)
+    return file_buffer.read()
 
 
 def _package_name(modname):
