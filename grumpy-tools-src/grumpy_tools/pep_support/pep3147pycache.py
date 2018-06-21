@@ -19,6 +19,11 @@ GRUMPY_MAGIC_TAG = 'grumpy-' + grumpy_tools.__version__.replace('.', '')  # alik
 ORIGINAL_MAGIC_TAG = sys.implementation.cache_tag  # On Py27, only because importlib2
 
 
+def get_depends_path(script_path):
+    pycache_folder = get_pycache_folder(script_path)
+    return os.path.join(pycache_folder, 'dependencies.pkl')
+
+
 def get_checksum_path(script_path):
     pycache_folder = get_pycache_folder(script_path)
     return os.path.join(pycache_folder, 'checksum.sha1')
@@ -47,7 +52,6 @@ def should_refresh(stream, script_path, modname):
     if new_checksum != existing_checksum:
         logger.debug("Should refresh '%s' (%s)", modname, existing_checksum[:8])
         return True
-
 
     logger.debug("No need to refresh '%s' (%s)", modname, existing_checksum[:8])
     return False
@@ -128,7 +132,13 @@ def make_transpiled_module_folders(script_path, module_name):
             os.makedirs(folder)
 
     link_parent_modules(script_path, module_name)
-    return needed_folders
+
+    needed = needed_folders.copy()
+    needed.update({
+        'checksum_file': get_checksum_path(script_path),
+        'dependencies_file': get_depends_path(script_path),
+    })
+    return needed
 
 
 def _maybe_link_paths(orig, dest):

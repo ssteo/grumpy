@@ -32,6 +32,7 @@ requirements = [
     'importlib2>=3.5.0.2',
     'click-default-group>=1.2',
     'click-log>=0.3.2',
+    'dill>=0.2.7.1',
 ]
 
 setup_requirements = [

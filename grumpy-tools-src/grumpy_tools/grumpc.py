@@ -24,7 +24,10 @@ import os
 import sys
 from StringIO import StringIO
 import textwrap
+import pickle
 import logging
+
+import dill
 
 from .compiler import block
 from .compiler import imputil
@@ -59,7 +62,15 @@ def _parse_and_visit(stream, script, modname):
   return visitor, mod_block
 
 
-def _collect_deps(script, modname, pep3147_folders):
+def _collect_deps(script, modname, pep3147_folders, from_cache=False, update_cache=True):
+  if from_cache:
+    try:
+      with open(pep3147_folders['dependencies_file']) as deps_dumpfile:
+        deps, import_objects = pickle.load(deps_dumpfile)
+      return deps, import_objects
+    except Exception as err:
+      logger.warning("Could not load dependencies of '%s' from file.", modname)
+
   if os.path.exists(script):
     deps, import_objects = pydeps.main(script, modname, with_imports=True) #, script, gopath)
   elif os.path.exists(os.path.join(pep3147_folders['cache_folder'], os.path.basename(script))):
@@ -73,6 +84,15 @@ def _collect_deps(script, modname, pep3147_folders):
     raise NotImplementedError()
 
   deps = set(deps).difference(_get_parent_packages(modname))
+
+  if update_cache:
+    try:
+      with open(pep3147_folders['dependencies_file'], 'wb') as deps_dumpfile:
+        pickle.dump((deps, import_objects), deps_dumpfile)
+    except Exception as err:
+      logger.warning("Could not store dependencies of '%s' on file: %s", modname, err)
+    else:
+      logger.debug("Dependencies file regenerated")
   return deps, import_objects
 
 
@@ -125,7 +145,7 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
   pep3147_folders = make_transpiled_module_folders(script, modname)
   will_refresh = should_refresh(stream, script, modname)
 
-  deps, import_objects = _collect_deps(script, modname, pep3147_folders)
+  deps, import_objects = _collect_deps(script, modname, pep3147_folders, from_cache=(not will_refresh))
   imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
 
   if will_refresh or return_result:
