@@ -24,6 +24,7 @@ import os
 import sys
 from StringIO import StringIO
 import textwrap
+import logging
 
 from .compiler import block
 from .compiler import imputil
@@ -33,6 +34,7 @@ from .vendor import pythonparser
 from .pep_support.pep3147pycache import make_transpiled_module_folders, should_refresh, set_checksum
 from . import pydeps
 
+logger = logging.getLogger(__name__)
 
 def _parse_and_visit(stream, script, modname):
   gopath = os.environ['GOPATH']
