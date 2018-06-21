@@ -39,6 +39,7 @@ from . import pydeps
 
 logger = logging.getLogger(__name__)
 
+
 def _parse_and_visit(stream, script, modname):
   gopath = os.environ['GOPATH']
 
