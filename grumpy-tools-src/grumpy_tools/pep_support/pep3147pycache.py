@@ -61,12 +61,18 @@ def should_refresh(stream, script_path, modname):
 
 @lru_cache()
 def get_pycache_folder(script_path):
+    """
+    Gets the __pycache__ folder or PEP-3147
+
+    Returns cache_folder path. Can be temporary.
+    If so, will be cleaned automatically unless it is for __main__ module.
+    """
     assert script_path.endswith('.py')
 
     if script_path.endswith('__main__.py'):
-        tempdir = tempfile.mkdtemp(suffix='__pycache__')
-        logger.info("__main__ pycache folder: %s", tempdir)
-        return tempdir
+        cache_folder = tempfile.mkdtemp(suffix='__pycache__')  # Will be cleaned by grumprun
+        logger.info("__main__ pycache folder: %s", cache_folder)
+        return cache_folder
 
     ### TODO: Fix race conditions
     sys.implementation.cache_tag = GRUMPY_MAGIC_TAG
@@ -141,12 +147,12 @@ def make_transpiled_module_folders(script_path, module_name):
 
     link_parent_modules(script_path, module_name)
 
-    needed = needed_folders.copy()
-    needed.update({
+    result = needed_folders.copy()
+    result.update({
         'checksum_file': get_checksum_path(script_path),
         'dependencies_file': get_depends_path(script_path),
     })
-    return needed
+    return result
 
 
 def _maybe_link_paths(orig, dest):
