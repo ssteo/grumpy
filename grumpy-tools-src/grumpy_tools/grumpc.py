@@ -70,7 +70,8 @@ def _collect_deps(script, modname, pep3147_folders, from_cache=False, update_cac
         deps, import_objects = pickle.load(deps_dumpfile)
       return deps, import_objects
     except Exception as err:
-      logger.warning("Could not load dependencies of '%s' from cache.", modname)
+      # Race conditions with other scripts running or stale/broken dump
+      logger.info("Could not load dependencies of '%s' from cache.", modname)
 
   if os.path.exists(script):
     deps, import_objects = pydeps.main(script, modname, with_imports=True) #, script, gopath)
