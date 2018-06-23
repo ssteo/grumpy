@@ -186,6 +186,5 @@ def _package_name(modname):
 def _get_parent_packages(modname):
   package_parts = modname.split('.')
   parent_parts = package_parts[:-1]
-  parent_packages = set()
   for i, _ in enumerate(parent_parts):
     yield '.'.join(parent_parts[:(-i or None)])
