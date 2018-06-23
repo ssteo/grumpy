@@ -6,7 +6,9 @@ import sys
 import logging
 import hashlib
 import tempfile
+import warnings
 from backports.functools_lru_cache import lru_cache
+from backports.tempfile import TemporaryDirectory
 
 import importlib2
 import grumpy_tools
@@ -19,6 +21,18 @@ GOPATH_FOLDER = 'gopath'
 TRANSPILED_MODULES_FOLDER = 'src/__python__/'
 GRUMPY_MAGIC_TAG = 'grumpy-' + grumpy_tools.__version__.replace('.', '')  # alike cpython-27
 ORIGINAL_MAGIC_TAG = sys.implementation.cache_tag  # On Py27, only because importlib2
+
+_temporary_directories = []  # Will be cleaned up on main Python exit.
+
+
+class SilentTemporaryDirectory(TemporaryDirectory):
+    '''TemporaryDirectory that does not warn on implicit cleanup'''
+    @classmethod
+    def _cleanup(cls, *args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = TemporaryDirectory._cleanup(*args, **kwargs)
+        return result
 
 
 def get_depends_path(script_path):
@@ -81,6 +95,13 @@ def get_pycache_folder(script_path):
     ))
     sys.implementation.cache_tag = ORIGINAL_MAGIC_TAG
     ###
+
+    if not os.access(os.path.dirname(cache_folder), os.W_OK):
+        cache_folder = SilentTemporaryDirectory(suffix='__pycache__')
+        _temporary_directories.append(cache_folder)  # Hold GC until Python exits
+        logger.info("Natural __pycache__ folder not available. Using %s", cache_folder.name)
+        return cache_folder.name
+
     return cache_folder
 
 
