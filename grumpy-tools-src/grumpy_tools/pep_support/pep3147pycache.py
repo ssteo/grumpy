@@ -28,10 +28,11 @@ _temporary_directories = []  # Will be cleaned up on main Python exit.
 class SilentTemporaryDirectory(TemporaryDirectory):
     '''TemporaryDirectory that does not warn on implicit cleanup'''
     @classmethod
-    def _cleanup(cls, *args, **kwargs):
+    def _cleanup(cls, name, warn_message):
+        logger.debug(warn_message)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            result = TemporaryDirectory._cleanup(*args, **kwargs)
+            result = TemporaryDirectory._cleanup(name, warn_message)
         return result
 
 
