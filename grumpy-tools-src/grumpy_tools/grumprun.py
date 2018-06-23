@@ -52,7 +52,7 @@ func main() {
 """)
 
 
-def main(stream=None, modname=None, pep3147=False):
+def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
   assert pep3147, 'It is no longer optional'
   assert (stream is None and modname) or (stream.name and not modname)
 
@@ -113,7 +113,10 @@ def main(stream=None, modname=None, pep3147=False):
     logger.debug('Starting subprocess: `go run %s`', go_main)
     return subprocess.Popen('go run ' + go_main, shell=True).wait()
   finally:
-    pass
+    if clean_tempfolder:
+      shutil.rmtree(pep3147_folders['cache_folder'], ignore_errors=True)
+    else:
+      logger.warning('not cleaning the temporary pycache folder: %s', pep3147_folders['cache_folder'])
 
 
 def _package_name(modname):
