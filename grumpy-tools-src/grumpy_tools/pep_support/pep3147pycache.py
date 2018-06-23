@@ -97,13 +97,26 @@ def get_pycache_folder(script_path):
     sys.implementation.cache_tag = ORIGINAL_MAGIC_TAG
     ###
 
-    if not os.access(os.path.dirname(cache_folder), os.W_OK):
+    first_existing = _get_first_existing_parent(cache_folder)
+
+    if not os.access(first_existing, os.W_OK):
         cache_folder = SilentTemporaryDirectory(suffix='__pycache__')
         _temporary_directories.append(cache_folder)  # Hold GC until Python exits
         logger.info("Natural __pycache__ folder not available. Using %s", cache_folder.name)
         return cache_folder.name
 
     return cache_folder
+
+
+def _get_first_existing_parent(cache_folder):
+    path_parts = cache_folder.split(os.path.sep)
+    if path_parts[0] == '':  # From root.
+        path_parts[0] = os.path.sep
+
+    for i, _ in enumerate(path_parts):
+        subpath = os.path.join(*path_parts[:(-i or None)])
+        if os.path.exists(subpath):
+            return subpath
 
 
 def get_gopath_folder(script_path):
