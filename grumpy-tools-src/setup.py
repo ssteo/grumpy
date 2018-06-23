@@ -33,6 +33,7 @@ requirements = [
     'click-default-group>=1.2',
     'click-log>=0.3.2',
     'dill>=0.2.7.1',
+    'backports.functools-lru-cache>=1.5',
 ]
 
 setup_requirements = [

@@ -5,6 +5,8 @@ import os
 import sys
 import logging
 import hashlib
+import tempfile
+from backports.functools_lru_cache import lru_cache
 
 import importlib2
 import grumpy_tools
@@ -57,8 +59,14 @@ def should_refresh(stream, script_path, modname):
     return False
 
 
+@lru_cache()
 def get_pycache_folder(script_path):
     assert script_path.endswith('.py')
+
+    if script_path.endswith('__main__.py'):
+        tempdir = tempfile.mkdtemp(suffix='__pycache__')
+        logger.info("__main__ pycache folder: %s", tempdir)
+        return tempdir
 
     ### TODO: Fix race conditions
     sys.implementation.cache_tag = GRUMPY_MAGIC_TAG
