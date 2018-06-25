@@ -62,6 +62,7 @@ class Importer(algorithm.Visitor):
   # pylint: disable=invalid-name,missing-docstring,no-init
 
   def __init__(self, gopath, modname, script, absolute_import, package_dir=''):
+    self.script = script
     self.pathdirs = []
     if gopath:
       self.pathdirs.extend(os.path.join(d, 'src', '__python__')
@@ -154,7 +155,7 @@ class Importer(algorithm.Visitor):
       script = find_script(dirname, modname)
       if script:
         return Import(modname, script)
-    raise util.ImportError(node, 'no such module: {}'.format(modname))
+    raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
 
   def _resolve_relative_import(self, level, node, modname):
     if not self.package_dir:
