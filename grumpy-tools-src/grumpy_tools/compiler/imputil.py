@@ -23,6 +23,7 @@ import collections
 import functools
 import os
 import os.path
+import sys
 
 from grumpy_tools.compiler import util
 from grumpy_tools.vendor import pythonparser
@@ -67,6 +68,7 @@ class Importer(algorithm.Visitor):
     if gopath:
       self.pathdirs.extend(os.path.join(d, 'src', '__python__')
                            for d in gopath.split(os.pathsep))
+    self.pathdirs.extend(sys.path)
     dirname, basename = os.path.split(script)
     self.package_dir = package_dir or dirname
 
