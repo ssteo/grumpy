@@ -170,7 +170,7 @@ class Importer(algorithm.Visitor):
         self.package_dir, *(['..'] * uplevel)))
     script = find_script(dirname, modname)
     if not script:
-      raise util.ImportError(node, 'no such module: {}'.format(modname))
+      raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
     parts = self.package_name.split('.')
     return Import('.'.join(parts[:len(parts)-uplevel]) + '.' + modname, script)
 
