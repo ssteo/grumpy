@@ -56,7 +56,9 @@ def transpile(script=None, modname=None, pep3147=False):
 @click.argument('file', required=False, type=click.File('rb'))
 @click.option('-c', '--cmd', help='Program passed in as string')
 @click.option('-m', '-modname', '--modname', help='Run run library module as a script')
-def run(file=None, cmd=None, modname=None, pep3147=True):
+@click.option('--keep-main', is_flag=True,
+              help='Do not clear the temporary folder containing the transpilation result of main script')
+def run(file=None, cmd=None, modname=None, keep_main=False, pep3147=True):
     _ensure_gopath()
 
     if modname:
@@ -79,7 +81,7 @@ def run(file=None, cmd=None, modname=None, pep3147=True):
         stream.seek(0)
         stream.name = '__main__.py'
 
-    result = grumprun.main(stream=stream, modname=modname, pep3147=pep3147)
+    result = grumprun.main(stream=stream, modname=modname, pep3147=pep3147, clean_tempfolder=(not keep_main))
     sys.exit(result)
 
 
