@@ -11,6 +11,8 @@ logger = logging.getLogger(__package__)
 import click
 import click_log
 from click_log.core import ColorFormatter
+from click_default_group import DefaultGroup
+
 ColorFormatter.colors['info'] = {'fg': 'green'}
 click_log.basic_config(logger)
 logger.propagate = True
@@ -18,11 +20,21 @@ logger.propagate = True
 from . import grumpc, grumprun, pydeps
 
 
-@click.group('grumpy')
+@click.group('grumpy', cls=DefaultGroup, default='run', default_if_no_args=True)
 @click_log.simple_verbosity_option(logger, default='WARNING')
 def main(args=None):
-    """Console script for grumpy_tools."""
-    return 0
+    """
+    Console script for grumpy_tools.
+
+    The default command `grumpy run` will ran if no other selected.
+    It mimics the CPython options, when possible and applicable.
+    Please take a look on `grumpy run --help` for its implemented options.
+
+    Example: all the following lines outputs Hello on the STDOUT\n
+        $ python -c 'print("Hello")'\n
+        $ grumpy -c 'print("Hello")'\n
+        $ grumpy run -c 'print("Hello")'
+    """
 
 
 @main.command('transpile')
@@ -44,7 +56,9 @@ def transpile(script=None, modname=None, pep3147=False):
 @click.argument('file', required=False, type=click.File('rb'))
 @click.option('-c', '--cmd', help='Program passed in as string')
 @click.option('-m', '-modname', '--modname', help='Run run library module as a script')
-def run(file=None, cmd=None, modname=None, pep3147=True):
+@click.option('--keep-main', is_flag=True,
+              help='Do not clear the temporary folder containing the transpilation result of main script')
+def run(file=None, cmd=None, modname=None, keep_main=False, pep3147=True):
     _ensure_gopath()
 
     if modname:
@@ -54,13 +68,20 @@ def run(file=None, cmd=None, modname=None, pep3147=True):
     elif cmd:
         stream = StringIO(cmd)
     else:   # Read from STDIN
-        stream = StringIO(click.get_text_stream('stdin').read())
+        stdin = click.get_text_stream('stdin')
+        if stdin.isatty():  # Interactive terminal -> REPL
+            click.echo('Python REPL is not (yet) available.'
+                       '\nTry to pipe in your code, or pass --help for more options',
+                       err=True)
+            sys.exit(1)
+        else:               # Piped terminal
+            stream = StringIO(stdin.read())
 
     if stream is not None:
         stream.seek(0)
         stream.name = '__main__.py'
 
-    result = grumprun.main(stream=stream, modname=modname, pep3147=pep3147)
+    result = grumprun.main(stream=stream, modname=modname, pep3147=pep3147, clean_tempfolder=(not keep_main))
     sys.exit(result)
 
 
