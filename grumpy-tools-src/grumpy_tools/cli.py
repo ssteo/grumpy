@@ -11,6 +11,8 @@ logger = logging.getLogger(__package__)
 import click
 import click_log
 from click_log.core import ColorFormatter
+from click_default_group import DefaultGroup
+
 ColorFormatter.colors['info'] = {'fg': 'green'}
 click_log.basic_config(logger)
 logger.propagate = True
@@ -18,11 +20,21 @@ logger.propagate = True
 from . import grumpc, grumprun, pydeps
 
 
-@click.group('grumpy')
+@click.group('grumpy', cls=DefaultGroup, default='run', default_if_no_args=True)
 @click_log.simple_verbosity_option(logger, default='WARNING')
 def main(args=None):
-    """Console script for grumpy_tools."""
-    return 0
+    """
+    Console script for grumpy_tools.
+
+    The default command `grumpy run` will ran if no other selected.
+    It mimics the CPython options, when possible and applicable.
+    Please take a look on `grumpy run --help` for its implemented options.
+
+    Example: all the following lines outputs Hello on the STDOUT\n
+        $ python -c 'print("Hello")'\n
+        $ grumpy -c 'print("Hello")'\n
+        $ grumpy run -c 'print("Hello")'
+    """
 
 
 @main.command('transpile')
