@@ -117,7 +117,7 @@ class Importer(algorithm.Visitor):
       return [imp]
 
     imports = []
-    if not node.module:
+    if not node.module and False:
       # Import of the form 'from .. import foo, bar'. All named imports must be
       # modules, not module members.
       for alias in node.names:
@@ -126,6 +126,9 @@ class Importer(algorithm.Visitor):
                         imp.name.count('.'))
         imports.append(imp)
       return imports
+
+    if not node.module:
+      node.module = '__init__'
 
     member_imp = None
     for alias in node.names:
@@ -136,7 +139,7 @@ class Importer(algorithm.Visitor):
         resolver = self._resolve_import
       try:
         imp = resolver(node, '{}.{}'.format(node.module, alias.name))
-      except util.ImportError:
+      except (util.ImportError, AttributeError):
         # A member (not a submodule) is being imported, so bind it.
         if not member_imp:
           member_imp = resolver(node, node.module)
