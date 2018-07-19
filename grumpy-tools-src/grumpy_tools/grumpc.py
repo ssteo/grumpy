@@ -169,7 +169,7 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
       mod_dir = pep3147_folders['transpiled_module_folder']
       with open(os.path.join(mod_dir, 'module.go'), 'w+') as transpiled_file:
         transpiled_file.write(file_buffer.read())
-      set_checksum(stream, script)
+      set_checksum(stream, script, modname)
 
   if return_result:
     assert file_buffer, "Wrong logic paths. 'file_buffer' should be available here!"
