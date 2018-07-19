@@ -113,10 +113,11 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
     logger.debug('Starting subprocess: `go run %s`', go_main)
     return subprocess.Popen('go run ' + go_main, shell=True).wait()
   finally:
-    if clean_tempfolder:
-      shutil.rmtree(pep3147_folders['cache_folder'], ignore_errors=True)
-    else:
-      logger.warning('not cleaning the temporary pycache folder: %s', pep3147_folders['cache_folder'])
+    if 'pep3147_folders' in locals():
+      if clean_tempfolder:
+        shutil.rmtree(pep3147_folders['cache_folder'], ignore_errors=True)
+      else:
+        logger.warning('not cleaning the temporary pycache folder: %s', pep3147_folders['cache_folder'])
 
 
 def _package_name(modname):
