@@ -60,6 +60,7 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
 
   # CPython does not cache the __main__. Should I?
   try:
+    script = None
     if modname and not stream:  # TODO: move all this `if modname` to the CLI handling?
       # Find the script associated with the given module.
       for d in gopath.split(os.pathsep):
@@ -67,7 +68,9 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
             os.path.join(d, 'src', '__python__'), modname)
         if script:
           break
-      else:
+      if not script:
+        script = imputil.find_script(os.getcwd(), modname)
+      if not script:
         raise RuntimeError("can't find module '%s'", modname)
       stream = StringIO(open(script).read())
       stream.name = '__main__.py'
