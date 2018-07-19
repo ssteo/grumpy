@@ -236,11 +236,15 @@ def calculate_transitive_deps(modname, script, gopath):
   return deps
 
 
-def find_script(dirname, name):
+def find_script(dirname, name, main=False):
   prefix = os.path.join(dirname, name.replace('.', os.sep))
   script = prefix + '.py'
   if os.path.isfile(script):
     return script
+  if main:
+    script = os.path.join(prefix, '__main__.py')
+    if os.path.isfile(script):
+      return script
   script = os.path.join(prefix, '__init__.py')
   if os.path.isfile(script):
     return script
