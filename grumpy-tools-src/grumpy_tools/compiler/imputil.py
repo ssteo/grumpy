@@ -116,20 +116,10 @@ class Importer(algorithm.Visitor):
         imp.add_binding(Import.MEMBER, asname, alias.name)
       return [imp]
 
-    imports = []
-    if not node.module and False:
-      # Import of the form 'from .. import foo, bar'. All named imports must be
-      # modules, not module members.
-      for alias in node.names:
-        imp = self._resolve_relative_import(node.level, node, alias.name)
-        imp.add_binding(Import.MODULE, alias.asname or alias.name,
-                        imp.name.count('.'))
-        imports.append(imp)
-      return imports
-
     if not node.module:
       node.module = '__init__'
 
+    imports = []
     member_imp = None
     for alias in node.names:
       asname = alias.asname or alias.name
