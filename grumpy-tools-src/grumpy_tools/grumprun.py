@@ -69,6 +69,11 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
         if script:
           break
       if not script:
+        for d in sys.path:
+          script = imputil.find_script(d, modname, main=True)
+          if script:
+            break
+      if not script:
         script = imputil.find_script(os.getcwd(), modname, main=True)
       if not script:
         raise RuntimeError("can't find module '%s'", modname)
