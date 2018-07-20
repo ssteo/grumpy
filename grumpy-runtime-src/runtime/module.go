@@ -179,7 +179,7 @@ func importOne(f *Frame, name string) (*Object, *BaseException) {
 }
 
 // newModule creates a new Module object with the given fully qualified name
-// (e.g a.b.c) and its corresponding Python filename.
+// (e.g a.b.c) and its corresponding Python filename and package.
 func newModule(name, filename string) *Module {
 	pkgName := ""
 	if strings.Contains(name, ".") {
