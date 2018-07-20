@@ -38,12 +38,12 @@ class SilentTemporaryDirectory(TemporaryDirectory):
 
 def get_depends_path(script_path, module_name):
     pycache_folder = get_pycache_folder(script_path, module_name)
-    return os.path.join(pycache_folder, 'dependencies.pkl')
+    return os.path.join(pycache_folder, 'dependencies-%s.pkl' % module_name)
 
 
 def get_checksum_path(script_path, module_name):
     pycache_folder = get_pycache_folder(script_path, module_name)
-    return os.path.join(pycache_folder, 'checksum.sha1')
+    return os.path.join(pycache_folder, 'checksum-%s.sha1' % module_name)
 
 
 def get_checksum(stream):
