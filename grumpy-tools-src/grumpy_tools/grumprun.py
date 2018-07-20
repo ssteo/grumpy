@@ -65,7 +65,7 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
       # Find the script associated with the given module.
       for d in gopath.split(os.pathsep):
         script = imputil.find_script(
-            os.path.join(d, 'src', '__python__'), modname)
+          os.path.join(d, 'src', '__python__'), modname)
         if script:
           break
       if not script:
