@@ -181,9 +181,16 @@ func importOne(f *Frame, name string) (*Object, *BaseException) {
 // newModule creates a new Module object with the given fully qualified name
 // (e.g a.b.c) and its corresponding Python filename.
 func newModule(name, filename string) *Module {
+	pkgName := ""
+	if strings.Contains(name, ".") {
+		pkgParts := strings.Split(name, ".")
+		pkgName = strings.Join(pkgParts[:len(pkgParts)-1], ".")
+	}
+
 	d := newStringDict(map[string]*Object{
-		"__file__": NewStr(filename).ToObject(),
-		"__name__": NewStr(name).ToObject(),
+		"__file__":    NewStr(filename).ToObject(),
+		"__name__":    NewStr(name).ToObject(),
+		"__package__": NewStr(pkgName).ToObject(),
 	})
 	return &Module{Object: Object{typ: ModuleType, dict: d}}
 }
