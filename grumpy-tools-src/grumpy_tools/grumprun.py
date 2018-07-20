@@ -77,8 +77,12 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
         script = imputil.find_script(os.getcwd(), modname, main=True)
       if not script:
         raise RuntimeError("can't find module '%s'", modname)
+
       stream = StringIO(open(script).read())
-      stream.name = '__main__.py'
+      if script.endswith('__main__.py'):
+        stream.name = script
+      else:
+        stream.name = '__main__.py'
 
     script = os.path.abspath(stream.name)
     modname = '__main__'
