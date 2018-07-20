@@ -5,7 +5,7 @@ def main():
     print '__package__ is', __package__
     from . import SPAM
     print(SPAM)
-    sys.exit(0)
+
 
 if __name__ == '__main__':
     print '__name__ IS __main__'
