@@ -105,6 +105,9 @@ def _recursively_transpile(import_objects):
       # TODO: Fix cyclic imports?
       name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
       main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False)
+      if name.endswith('.__init__'):
+        name = name.rpartition('.__init__')[0]
+        main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False)
 
 
 def _transpile(script, modname, imports, visitor, mod_block):
