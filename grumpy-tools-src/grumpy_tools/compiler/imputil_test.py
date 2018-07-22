@@ -206,8 +206,10 @@ class ImportVisitorTest(unittest.TestCase):
                       pythonparser.parse('from .. import qux').body[0])
 
   def testRelativeModuleNoExist(self):
-    self.assertRaises(util.ImportError, self.bar_importer.visit,
-                      pythonparser.parse('from . import qux').body[0])
+    imp = copy.deepcopy(self.bar_import)
+    imp.add_binding(imputil.Import.MEMBER, 'qux', 'qux')
+    node = pythonparser.parse('from . import qux').body[0]
+    self._assert_imports_equal([imp], self.bar_importer.visit(node))
 
   def testRelativeModule(self):
     imp = copy.deepcopy(self.foo2_import)

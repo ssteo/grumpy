@@ -60,17 +60,29 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
 
   # CPython does not cache the __main__. Should I?
   try:
+    script = None
     if modname and not stream:  # TODO: move all this `if modname` to the CLI handling?
       # Find the script associated with the given module.
       for d in gopath.split(os.pathsep):
         script = imputil.find_script(
-            os.path.join(d, 'src', '__python__'), modname)
+          os.path.join(d, 'src', '__python__'), modname)
         if script:
           break
-      else:
+      if not script:
+        for d in sys.path:
+          script = imputil.find_script(d, modname, main=True)
+          if script:
+            break
+      if not script:
+        script = imputil.find_script(os.getcwd(), modname, main=True)
+      if not script:
         raise RuntimeError("can't find module '%s'", modname)
+
       stream = StringIO(open(script).read())
-      stream.name = '__main__.py'
+      if script.endswith('__main__.py'):
+        stream.name = script
+      else:
+        stream.name = '__main__.py'
 
     script = os.path.abspath(stream.name)
     modname = '__main__'
@@ -113,10 +125,11 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
     logger.debug('Starting subprocess: `go run %s`', go_main)
     return subprocess.Popen('go run ' + go_main, shell=True).wait()
   finally:
-    if clean_tempfolder:
-      shutil.rmtree(pep3147_folders['cache_folder'], ignore_errors=True)
-    else:
-      logger.warning('not cleaning the temporary pycache folder: %s', pep3147_folders['cache_folder'])
+    if 'pep3147_folders' in locals():
+      if clean_tempfolder:
+        shutil.rmtree(pep3147_folders['cache_folder'], ignore_errors=True)
+      else:
+        logger.warning('not cleaning the temporary pycache folder: %s', pep3147_folders['cache_folder'])
 
 
 def _package_name(modname):

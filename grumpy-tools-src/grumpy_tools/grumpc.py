@@ -105,6 +105,9 @@ def _recursively_transpile(import_objects):
       # TODO: Fix cyclic imports?
       name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
       main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False)
+      if name.endswith('.__init__'):
+        name = name.rpartition('.__init__')[0]
+        main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False)
 
 
 def _transpile(script, modname, imports, visitor, mod_block):
@@ -169,7 +172,7 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
       mod_dir = pep3147_folders['transpiled_module_folder']
       with open(os.path.join(mod_dir, 'module.go'), 'w+') as transpiled_file:
         transpiled_file.write(file_buffer.read())
-      set_checksum(stream, script)
+      set_checksum(stream, script, modname)
 
   if return_result:
     assert file_buffer, "Wrong logic paths. 'file_buffer' should be available here!"

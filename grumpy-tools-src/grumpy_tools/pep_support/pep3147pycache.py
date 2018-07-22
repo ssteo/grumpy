@@ -36,14 +36,14 @@ class SilentTemporaryDirectory(TemporaryDirectory):
         return result
 
 
-def get_depends_path(script_path):
-    pycache_folder = get_pycache_folder(script_path)
-    return os.path.join(pycache_folder, 'dependencies.pkl')
+def get_depends_path(script_path, module_name):
+    pycache_folder = get_pycache_folder(script_path, module_name)
+    return os.path.join(pycache_folder, 'dependencies-%s.pkl' % module_name)
 
 
-def get_checksum_path(script_path):
-    pycache_folder = get_pycache_folder(script_path)
-    return os.path.join(pycache_folder, 'checksum.sha1')
+def get_checksum_path(script_path, module_name):
+    pycache_folder = get_pycache_folder(script_path, module_name)
+    return os.path.join(pycache_folder, 'checksum-%s.sha1' % module_name)
 
 
 def get_checksum(stream):
@@ -51,13 +51,13 @@ def get_checksum(stream):
     return hashlib.sha1(stream.read()).hexdigest()
 
 
-def set_checksum(stream, script_path):
-    with open(get_checksum_path(script_path), 'w') as chk_file:
+def set_checksum(stream, script_path, module_name):
+    with open(get_checksum_path(script_path, module_name), 'w') as chk_file:
         chk_file.write(get_checksum(stream))
 
 
 def should_refresh(stream, script_path, modname):
-    checksum_filename = get_checksum_path(script_path)
+    checksum_filename = get_checksum_path(script_path, modname)
     if not os.path.exists(checksum_filename):
         logger.debug("Should transpile '%s'", modname)
         return True
@@ -75,7 +75,7 @@ def should_refresh(stream, script_path, modname):
 
 
 @lru_cache()
-def get_pycache_folder(script_path):
+def get_pycache_folder(script_path, module_name):
     """
     Gets the __pycache__ folder or PEP-3147
 
@@ -84,7 +84,7 @@ def get_pycache_folder(script_path):
     """
     assert script_path.endswith('.py')
 
-    if script_path.endswith('__main__.py'):
+    if module_name == '__main__':
         cache_folder = tempfile.mkdtemp(suffix='__pycache__')  # Will be cleaned by grumprun
         logger.info("__main__ pycache folder: %s", cache_folder)
         return cache_folder
@@ -119,18 +119,18 @@ def _get_first_existing_parent(cache_folder):
             return subpath
 
 
-def get_gopath_folder(script_path):
-    cache_folder = get_pycache_folder(script_path)
+def get_gopath_folder(script_path, module_name):
+    cache_folder = get_pycache_folder(script_path, module_name)
     return os.path.join(cache_folder, GOPATH_FOLDER)
 
 
-def get_transpiled_base_folder(script_path):
-    gopath_folder = get_gopath_folder(script_path)
+def get_transpiled_base_folder(script_path, module_name):
+    gopath_folder = get_gopath_folder(script_path, module_name)
     return os.path.join(gopath_folder, TRANSPILED_MODULES_FOLDER)
 
 
 def get_transpiled_module_folder(script_path, module_name):
-    transpiled_base_folder = get_transpiled_base_folder(script_path)
+    transpiled_base_folder = get_transpiled_base_folder(script_path, module_name)
     parts = module_name.split('.')
     return os.path.join(transpiled_base_folder, *parts)
 
@@ -169,9 +169,9 @@ def make_transpiled_module_folders(script_path, module_name):
     Recursively "stomp" the files found in places that a folder is needed.
     """
     needed_folders = {
-        'cache_folder': get_pycache_folder(script_path),
-        'gopath_folder': get_gopath_folder(script_path),
-        'transpiled_base_folder': get_transpiled_base_folder(script_path),
+        'cache_folder': get_pycache_folder(script_path, module_name),
+        'gopath_folder': get_gopath_folder(script_path, module_name),
+        'transpiled_base_folder': get_transpiled_base_folder(script_path, module_name),
         'transpiled_module_folder': get_transpiled_module_folder(script_path, module_name),
     }
     for role, folder in needed_folders.items():
@@ -184,8 +184,8 @@ def make_transpiled_module_folders(script_path, module_name):
 
     result = needed_folders.copy()
     result.update({
-        'checksum_file': get_checksum_path(script_path),
-        'dependencies_file': get_depends_path(script_path),
+        'checksum_file': get_checksum_path(script_path, module_name),
+        'dependencies_file': get_depends_path(script_path, module_name),
     })
     return result
 

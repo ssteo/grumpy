@@ -117,16 +117,6 @@ class Importer(algorithm.Visitor):
       return [imp]
 
     imports = []
-    if not node.module:
-      # Import of the form 'from .. import foo, bar'. All named imports must be
-      # modules, not module members.
-      for alias in node.names:
-        imp = self._resolve_relative_import(node.level, node, alias.name)
-        imp.add_binding(Import.MODULE, alias.asname or alias.name,
-                        imp.name.count('.'))
-        imports.append(imp)
-      return imports
-
     member_imp = None
     for alias in node.names:
       asname = alias.asname or alias.name
@@ -135,8 +125,12 @@ class Importer(algorithm.Visitor):
       else:
         resolver = self._resolve_import
       try:
-        imp = resolver(node, '{}.{}'.format(node.module, alias.name))
-      except util.ImportError:
+        if not node.module:
+          modname = alias.name
+        else:
+          modname = '{}.{}'.format(node.module, alias.name)
+        imp = resolver(node, modname)
+      except (util.ImportError, AttributeError):
         # A member (not a submodule) is being imported, so bind it.
         if not member_imp:
           member_imp = resolver(node, node.module)
@@ -168,11 +162,11 @@ class Importer(algorithm.Visitor):
           node, 'attempted relative import beyond toplevel package')
     dirname = os.path.normpath(os.path.join(
         self.package_dir, *(['..'] * uplevel)))
-    script = find_script(dirname, modname)
+    script = find_script(dirname, modname or '__init__')
     if not script:
       raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
     parts = self.package_name.split('.')
-    return Import('.'.join(parts[:len(parts)-uplevel]) + '.' + modname, script)
+    return Import('.'.join(parts[:len(parts)-uplevel] + ([modname] if modname else [])), script)
 
 
 class _ImportCollector(algorithm.Visitor):
@@ -236,11 +230,15 @@ def calculate_transitive_deps(modname, script, gopath):
   return deps
 
 
-def find_script(dirname, name):
+def find_script(dirname, name, main=False):
   prefix = os.path.join(dirname, name.replace('.', os.sep))
   script = prefix + '.py'
   if os.path.isfile(script):
     return script
+  if main:
+    script = os.path.join(prefix, '__main__.py')
+    if os.path.isfile(script):
+      return script
   script = os.path.join(prefix, '__init__.py')
   if os.path.isfile(script):
     return script
