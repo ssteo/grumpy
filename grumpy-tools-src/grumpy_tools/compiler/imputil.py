@@ -116,9 +116,6 @@ class Importer(algorithm.Visitor):
         imp.add_binding(Import.MEMBER, asname, alias.name)
       return [imp]
 
-    if not node.module:
-      node.module = '__init__'
-
     imports = []
     member_imp = None
     for alias in node.names:
@@ -128,7 +125,11 @@ class Importer(algorithm.Visitor):
       else:
         resolver = self._resolve_import
       try:
-        imp = resolver(node, '{}.{}'.format(node.module, alias.name))
+        if not node.module:
+          modname = alias.name
+        else:
+          modname = '{}.{}'.format(node.module, alias.name)
+        imp = resolver(node, modname)
       except (util.ImportError, AttributeError):
         # A member (not a submodule) is being imported, so bind it.
         if not member_imp:
@@ -161,11 +162,11 @@ class Importer(algorithm.Visitor):
           node, 'attempted relative import beyond toplevel package')
     dirname = os.path.normpath(os.path.join(
         self.package_dir, *(['..'] * uplevel)))
-    script = find_script(dirname, modname)
+    script = find_script(dirname, modname or '__init__')
     if not script:
       raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
     parts = self.package_name.split('.')
-    return Import('.'.join(parts[:len(parts)-uplevel]) + '.' + modname, script)
+    return Import('.'.join(parts[:len(parts)-uplevel] + ([modname] if modname else [])), script)
 
 
 class _ImportCollector(algorithm.Visitor):
