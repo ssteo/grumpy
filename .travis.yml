@@ -7,19 +7,18 @@ matrix:
     - python: 3.6
   include:
     - language: python
-      go:
+      go: "1.10.x"
       python: 2.7
       env: PIP_SUDO=""
     - language: python
-      go:
+      go: "1.10.x"
       python: 3.6
       env: PIP_SUDO=""
     - os: osx
       env: PIP_SUDO="sudo"
 
 before_script:
-  - python --version && pip --version
-  - sudo pip install --upgrade pip
+  - go version && python --version && pip --version
   - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
 # Run gofmt and lint serially to avoid confusing output. Run tests in parallel
 # for speed.
