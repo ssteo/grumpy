@@ -2,24 +2,30 @@ language: go
 go:
   - "1.10.x"
 
-os:
-  - linux
-  - osx
+matrix:
+  allow_failures:
+      python: 3.6
+  include:
+    - python: 2.7
+      env: PIP_SUDO=""
+    - python: 3.6
+      env: PIP_SUDO=""
+    - os: osx
+      env: PIP_SUDO="sudo"
+
 before_script:
   - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
 # Run gofmt and lint serially to avoid confusing output. Run tests in parallel
 # for speed.
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo pip2 install pytest pytest-cov coverage; fi
-  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then pip2 install pytest pytest-cov coverage --user ; fi
+  - ${PIP_SUDO} python -m pip install pytest pytest-cov coverage
+
 script:
   # Install the thing
   - cd grumpy-tools-src
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo pip2 install . ; fi
-  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then pip2 install . --user ; fi
+  - ${PIP_SUDO} python -m pip install .
   - which grumpy
   - cd ../grumpy-runtime-src
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo pip2 install . ; fi
-  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then pip2 install . --user ; fi
+  - ${PIP_SUDO} python -m pip install .
   # Test the thing
   - cd ../grumpy-tools-src
   - pytest
