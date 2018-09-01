@@ -14,9 +14,11 @@ matrix:
         - PIP_SUDO=""
           USER_FLAG="--user"
     - python: 3.6
+      env:
         - PIP_SUDO=""
           USER_FLAG="--user"
     - os: osx
+      env:
         - PIP_SUDO="sudo"
           USER_FLAG=""
 
