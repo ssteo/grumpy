@@ -18,16 +18,15 @@ matrix:
     - os: osx
       env: PIP_SUDO="sudo"
 
-before_script:
+install:
+  - ${PIP_SUDO} pip install --upgrade pip
   - PATH=/usr/lib/go-1.10/bin:${PATH}
   - go version
-  - python --version && python -m pip --version
-  - ${PIP_SUDO] pip install --upgrade pip
-
-  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
-# Run gofmt and lint serially to avoid confusing output. Run tests in parallel
-# for speed.
   - ${PIP_SUDO} python -m pip install pytest pytest-cov coverage
+
+before_script:
+  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
+  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
 
 script:
   # Install the thing
@@ -40,6 +39,8 @@ script:
   - cd ../grumpy-tools-src
   - pytest
   - cd ../grumpy-runtime-src
+  # Run gofmt and lint serially to avoid confusing output. Run tests in parallel
+  # for speed.
   - make gofmt lint && make -j2 test
 
 # OSX swallows error logs: https://github.com/travis-ci/travis-ci/issues/6018
