@@ -22,11 +22,11 @@ install:
   - ${PIP_SUDO} pip install --upgrade pip
   - PATH=/usr/lib/go-1.10/bin:${PATH}
   - go version
-  - ${PIP_SUDO} python -m pip install pytest pytest-cov coverage
 
 before_script:
   # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
   - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
+  - ${PIP_SUDO} python -m pip install pytest pytest-cov coverage
 
 script:
   # Install the thing
