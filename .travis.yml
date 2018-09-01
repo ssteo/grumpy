@@ -1,24 +1,29 @@
-language: go
-go:
-  - "1.10.x"
+language: python
+
+addons:
+  apt:
+    sources:
+      - sourceline: 'ppa:gophers/archive'
+    update: true
+    packages: golang-1.10-go
 
 matrix:
   allow_failures:
     - python: 3.6
   include:
-    - language: python
-      go: "1.10.x"
-      python: 2.7
+    - python: 2.7
       env: PIP_SUDO=""
-    - language: python
-      go: "1.10.x"
-      python: 3.6
+    - python: 3.6
       env: PIP_SUDO=""
     - os: osx
       env: PIP_SUDO="sudo"
 
 before_script:
-  - go version && python --version && pip --version
+  - PATH=/usr/lib/go-1.10/bin:${PATH}
+  - go version
+  - python --version && python -m pip --version
+  - ${PIP_SUDO] pip install --upgrade pip
+
   - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
 # Run gofmt and lint serially to avoid confusing output. Run tests in parallel
 # for speed.
