@@ -10,27 +10,32 @@ matrix:
     - python: 3.6
   include:
     - python: 2.7
-      env: PIP_SUDO=""
+      env:
+        - PIP_SUDO=""
+          USER_FLAG="--user"
     - python: 3.6
-      env: PIP_SUDO=""
+        - PIP_SUDO=""
+          USER_FLAG="--user"
     - os: osx
-      env: PIP_SUDO="sudo"
+        - PIP_SUDO="sudo"
+          USER_FLAG=""
 
 install:
-  - ${PIP_SUDO} pip install --upgrade pip
+  - python --version && python -m pip --version
+  - ${PIP_SUDO} pip install --upgrade pip ${USER_FLAG}
 
 before_script:
   # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
   - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
-  - ${PIP_SUDO} python -m pip install pytest pytest-cov coverage
+  - ${PIP_SUDO} python -m pip install pytest pytest-cov coverage ${USER_FLAG}
 
 script:
   # Install the thing
   - cd grumpy-tools-src
-  - ${PIP_SUDO} python -m pip install .
+  - ${PIP_SUDO} python -m pip install . ${USER_FLAG}
   - which grumpy
   - cd ../grumpy-runtime-src
-  - ${PIP_SUDO} python -m pip install .
+  - ${PIP_SUDO} python -m pip install . ${USER_FLAG}
   # Test the thing
   - cd ../grumpy-tools-src
   - pytest
