@@ -1,6 +1,6 @@
-print 'STARTING'
+print('STARTING')
 from havingmainpkg.__main__ import main
-print 'IMPORTED'
+print('IMPORTED')
 
 main()
-print 'CALLED main()'
+print('CALLED main()')
