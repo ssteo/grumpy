@@ -18,7 +18,7 @@ matrix:
       env: GO=1.10.x
       script:  # To detect Python 3 syntax errors in grumpy-tools
         - pip install --upgrade flake8
-        - flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics grumpy-tools-src
+        - flake8 --count --select=E901,E999,F821,F822,F823 --show-source --statistics grumpy-tools-src
     - os: osx
       language: go
       go: 1.10.x
