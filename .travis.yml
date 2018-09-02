@@ -1,49 +1,57 @@
-language:
-  - go
-  - python
+language: python
 
-go:
-  - "1.10.x"
+cache:
+  directories:
+    - $HOME/.cache/pip
+    - $HOME/.cache/pre-commit
 
 matrix:
   allow_failures:
     - python: 3.6
+    - env: GO="stable"
   include:
     - python: 2.7
-      env:
-        - PIP_SUDO=""
-          USER_FLAG="--user"
+      env: GO=1.10.x
+    - python: 2.7
+      env: GO=stable  # Currently 1.11
     - python: 3.6
-      env:
-        - PIP_SUDO=""
-          USER_FLAG="--user"
+      env: GO=1.10.x
     - os: osx
-      env:
-        - PIP_SUDO="sudo"
-          USER_FLAG=""
+      language: go
+      go: 1.10.x
+      install: brew install python@2
 
 install:
-  - python --version && python -m pip --version
-  - ${PIP_SUDO} pip install --upgrade pip ${USER_FLAG}
+  - |
+    export GOPATH=~/gopath
+    export PATH="$GOPATH/bin:$PATH"
+    export TRAVIS_BUILD_DIR="$GOPATH/src/github.com/$TRAVIS_REPO_SLUG"
+    mkdir -p "$TRAVIS_BUILD_DIR"
+    rsync -az . "$TRAVIS_BUILD_DIR"
+    cd "$TRAVIS_BUILD_DIR"
+    # Use the current gimme because Travis gimme does not support syntax "1.10.x" and "stable"
+    eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=${GO} bash)"
 
 before_script:
+  - go version && python --version && python -m pip --version
   # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
   - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
-  - ${PIP_SUDO} python -m pip install pytest pytest-cov coverage ${USER_FLAG}
+  - pip install --upgrade pip
+  - pip install pytest pytest-cov coverage
 
 script:
   # Install the thing
   - cd grumpy-tools-src
-  - ${PIP_SUDO} python -m pip install . ${USER_FLAG}
+  - pip install .
   - which grumpy
   - cd ../grumpy-runtime-src
-  - ${PIP_SUDO} python -m pip install . ${USER_FLAG}
+  - pip install .
   # Test the thing
+  # Run gofmt and lint serially to avoid confusing output. Run tests in parallel
+  # for speed.
   - cd ../grumpy-tools-src
   - pytest
   - cd ../grumpy-runtime-src
-  # Run gofmt and lint serially to avoid confusing output. Run tests in parallel
-  # for speed.
   - make gofmt lint && make -j2 test
 
 # OSX swallows error logs: https://github.com/travis-ci/travis-ci/issues/6018
