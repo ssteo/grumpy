@@ -6,14 +6,14 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from . import source, diagnostic
 import re
 import unicodedata
+import sys
 
-try:
-    long            # Python 2
-    byte = chr
-except NameError:  # Python 3
+if sys.version_info[0] == 3:
+    unichr = chr
     byte = lambda x: bytes([x])
     long = int
-    unichr = chr
+else:
+    byte = chr
 
 class Token:
     """
@@ -326,7 +326,10 @@ class Lexer:
         # Lexing non-whitespace now.
         self.new_line = False
 
-        int_type = long if match.group(13) else int
+        if sys.version_info > (3,) or not match.group(13):
+            int_type = int
+        else:
+            int_type = long
 
         if match.group(5) is not None: # floating point or complex literal
             if match.group(6) is None:
