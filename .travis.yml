@@ -19,6 +19,7 @@ matrix:
     - os: osx
       language: go
       go: 1.10.x
+      env: PYTHON=2.7
       install: brew install python@2
 
 install:
