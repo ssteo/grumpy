@@ -10,7 +10,7 @@ import unicodedata
 try:
     long            # Python 2
     byte = chr
- except NameError:  # Python 3
+except NameError:  # Python 3
     byte = lambda x: bytes([x])
     long = int
     unichr = chr
