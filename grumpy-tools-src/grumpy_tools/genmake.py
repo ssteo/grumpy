@@ -16,6 +16,8 @@
 
 """Generate a Makefile for Python targets in a GOPATH directory."""
 
+from __future__ import print_function
+
 import argparse
 import os
 import subprocess
@@ -29,12 +31,12 @@ parser.add_argument('-all_target', default='all',
 
 
 def _PrintRule(target, prereqs, rules):
-  print '{}: {}'.format(target, ' '.join(prereqs))
+  print('{}: {}'.format(target, ' '.join(prereqs)))
   if rules:
-    print '\t@mkdir -p $(@D)'
+    print('\t@mkdir -p $(@D)')
     for rule in rules:
-      print '\t@{}'.format(rule)
-  print
+      print('\t@{}'.format(rule))
+  print()
 
 
 def main(args):
@@ -42,16 +44,16 @@ def main(args):
     proc = subprocess.Popen('go env GOOS GOARCH', shell=True,
                             stdout=subprocess.PIPE)
   except OSError as e:
-    print >> sys.stderr, str(e)
+    print(str(e), file=sys.stderr)
     return 1
   out, _ = proc.communicate()
   if proc.returncode:
-    print >> sys.stderr, 'go exited with status: {}'.format(proc.returncode)
+    print('go exited with status: {}'.format(proc.returncode), file=sys.stderr)
     return 1
   goos, goarch = out.split()
 
   if args.all_target:
-    print '{}:\n'.format(args.all_target)
+    print('{}:\n'.format(args.all_target))
 
   gopath = os.path.normpath(args.dir)
   pkg_dir = os.path.join(gopath, 'pkg', '{}_{}'.format(goos, goarch))
@@ -80,7 +82,7 @@ def main(args):
       _PrintRule(ar_name, [go_file], [recipe.format(go_package, pkg_dir)])
       if args.all_target:
         _PrintRule(args.all_target, [ar_name], [])
-      print '-include {}\n'.format(dep_file)
+      print('-include {}\n'.format(dep_file))
 
 
 if __name__ == '__main__':

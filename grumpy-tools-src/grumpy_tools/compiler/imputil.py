@@ -30,6 +30,11 @@ from grumpy_tools.vendor import pythonparser
 from grumpy_tools.vendor.pythonparser import algorithm
 from grumpy_tools.vendor.pythonparser import ast
 
+try:
+  xrange          # Python 2
+except NameError:
+  xrange = range  # Python 3
+
 
 _NATIVE_MODULE_PREFIX = '__go__/'
 
