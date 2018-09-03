@@ -22,6 +22,10 @@ import collections
 import re
 import sys
 
+try:
+  xrange          # Python 2
+except NameError:
+  xrange = range  # Python 3
 
 cover_re = re.compile(r'([^:]+):(\d+)\.\d+,(\d+).\d+ \d+ (\d+)$')
 
