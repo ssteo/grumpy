@@ -1,32 +1,58 @@
-language: go
-go:
-  - "1.10.x"
+language: python
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+    - $HOME/.cache/pre-commit
 
 matrix:
+  allow_failures:
+    - python: 3.6
+    - env: GO="stable"
   include:
-    - os: linux
-      env:
-        - SUDO=""
-          USER_FLAG="--user"
+    - python: 2.7
+      env: GO=1.10.x
+    - python: 2.7
+      env: GO=stable  # Currently 1.11
+    - python: 3.6
+      env: GO=1.10.x
+      script:  # To detect Python 3 syntax errors in grumpy-tools
+        - pip install --upgrade flake8
+        - flake8 --count --select=E901,E999,F821,F822,F823 --show-source --statistics grumpy-tools-src
     - os: osx
-      env:
-        - SUDO="sudo"
-          USER_FLAG=""
+      language: go
+      go: 1.10.x
+      env: OSX_PYTHON=2.7
+      install: brew install python@2
+
+install:
+  - |
+    export GOPATH=~/gopath
+    export PATH="$GOPATH/bin:$PATH"
+    export TRAVIS_BUILD_DIR="$GOPATH/src/github.com/$TRAVIS_REPO_SLUG"
+    mkdir -p "$TRAVIS_BUILD_DIR"
+    rsync -az . "$TRAVIS_BUILD_DIR"
+    cd "$TRAVIS_BUILD_DIR"
+    # Use the current gimme because Travis gimme does not support syntax "1.10.x" and "stable"
+    eval "$(curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | GIMME_GO_VERSION=${GO} bash)"
 
 before_script:
-  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
-# Run gofmt and lint serially to avoid confusing output. Run tests in parallel
-# for speed.
-  - ${SUDO} python -m pip install pytest pytest-cov coverage ${USER_FLAG} 
+  - go version && python --version && python -m pip --version
+  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
+  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
+  - pip install --upgrade pip
+  - pip install pytest pytest-cov coverage
 
 script:
   # Install the thing
   - cd grumpy-tools-src
-  - ${SUDO} python -m pip install . ${USER_FLAG}
+  - pip install .
   - which grumpy
   - cd ../grumpy-runtime-src
-  - ${SUDO} python -m pip install . ${USER_FLAG}
+  - pip install .
   # Test the thing
+  # Run gofmt and lint serially to avoid confusing output. Run tests in parallel
+  # for speed.
   - cd ../grumpy-tools-src
   - pytest
   - cd ../grumpy-runtime-src
