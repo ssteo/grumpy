@@ -16,6 +16,8 @@
 
 """Convert a unified diff into a list of modified files and line numbers."""
 
+from __future__ import print_function
+
 import sys
 
 
@@ -76,7 +78,7 @@ def main():
     if line.startswith('+++'):
       filename = line.split()[1]
       for n in _ReadHunks(buf):
-        print '{}:{}'.format(filename, n)
+        print('{}:{}'.format(filename, n))
 
 
 if __name__ == '__main__':
