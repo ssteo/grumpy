@@ -15,6 +15,7 @@
 # limitations under the License.
 
 """Generate a Makefile for Python targets in a GOPATH directory."""
+
 from __future__ import print_function
 
 import argparse
