@@ -16,6 +16,8 @@
 
 """Parse a Go coverage file and prints a message for lines missing coverage."""
 
+from __future__ import print_function
+
 import collections
 import re
 import sys
@@ -44,7 +46,7 @@ def main():
     uncovered = _ParseCover(f)
   for filename in sorted(uncovered.keys()):
     for lineno in sorted(uncovered[filename]):
-      print '{}:{}'.format(filename, lineno)
+      print('{}:{}'.format(filename, lineno))
 
 
 if __name__ == '__main__':
