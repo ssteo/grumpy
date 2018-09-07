@@ -624,6 +624,52 @@ func strNew(f *Frame, t *Type, args Args, _ KWArgs) (*Object, *BaseException) {
 	return s.ToObject(), nil
 }
 
+// strPartition splits the string at the first occurrence of sep, and
+// return a 3-tuple containing the part before the separator, the separator
+// itself, and the part after the separator. If the separator is not found,
+// return a 3-tuple containing the string itself, followed by two empty strings.
+func strPartition(f *Frame, args Args, _ KWArgs) (*Object, *BaseException) {
+	if raised := checkMethodArgs(f, "partition", args, StrType, StrType); raised != nil {
+		return nil, raised
+	}
+	sep := toStrUnsafe(args[1]).Value()
+	if sep == "" {
+		return nil, f.RaiseType(ValueErrorType, "empty separator")
+	}
+	s := toStrUnsafe(args[0]).Value()
+	pos := strings.Index(s, sep)
+	if pos < 0 {
+		emptyStr := NewStr("").ToObject()
+		return NewTuple(args[0], emptyStr, emptyStr).ToObject(), nil
+	}
+	start := NewStr(s[0:pos]).ToObject()
+	end := NewStr(s[pos+len(sep):]).ToObject()
+	return NewTuple(start, args[1], end).ToObject(), nil
+}
+
+// strPartition splits the string at the last occurrence of sep, and
+// return a 3-tuple containing the part before the separator, the separator
+// itself, and the part after the separator. If the separator is not found,
+// return a 3-tuple containing two empty strings, followed by the string itself.
+func strRPartition(f *Frame, args Args, _ KWArgs) (*Object, *BaseException) {
+	if raised := checkMethodArgs(f, "rpartition", args, StrType, StrType); raised != nil {
+		return nil, raised
+	}
+	sep := toStrUnsafe(args[1]).Value()
+	if sep == "" {
+		return nil, f.RaiseType(ValueErrorType, "empty separator")
+	}
+	s := toStrUnsafe(args[0]).Value()
+	pos := strings.LastIndex(s, sep)
+	if pos < 0 {
+		emptyStr := NewStr("").ToObject()
+		return NewTuple(emptyStr, emptyStr, args[0]).ToObject(), nil
+	}
+	start := NewStr(s[0:pos]).ToObject()
+	end := NewStr(s[pos+len(sep):]).ToObject()
+	return NewTuple(start, args[1], end).ToObject(), nil
+}
+
 // strReplace returns a copy of the string s with the first n non-overlapping
 // instances of old replaced by sub. If old is empty, it matches at the
 // beginning of the string. If n < 0, there is no limit on the number of
@@ -960,6 +1006,8 @@ func initStrType(dict map[string]*Object) {
 	dict["startswith"] = newBuiltinFunction("startswith", strStartsWith).ToObject()
 	dict["strip"] = newBuiltinFunction("strip", strStrip).ToObject()
 	dict["swapcase"] = newBuiltinFunction("swapcase", strSwapCase).ToObject()
+	dict["partition"] = newBuiltinFunction("partition", strPartition).ToObject()
+	dict["rpartition"] = newBuiltinFunction("rpartition", strRPartition).ToObject()
 	dict["replace"] = newBuiltinFunction("replace", strReplace).ToObject()
 	dict["rstrip"] = newBuiltinFunction("rstrip", strRStrip).ToObject()
 	dict["title"] = newBuiltinFunction("title", strTitle).ToObject()
