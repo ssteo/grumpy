@@ -1,0 +1,32 @@
+image: golang:1.10.3-stretch
+
+cache:
+  paths:
+    - /apt-cache
+    - /go/src/github.com
+    - /go/src/golang.org
+    - /go/src/google.golang.org
+    - /go/src/gopkg.in
+
+stages:
+  - test
+  - build
+
+before_script:
+  - apt-get update && apt-get install -y --no-install-recommends python2.7 python2.7-dev python-setuptools
+  - easy_install pip
+  - pip2 install pytest pytest-cov
+
+install_and_test:
+  stage: test
+  script:
+    # Install the thing
+    - cd grumpy-tools-src
+    - pip2 install .
+    - cd ../grumpy-runtime-src
+    - pip2 install .
+    # Test the thing
+    - cd ../grumpy-tools-src
+    - pytest
+    - cd ../grumpy-runtime-src
+    - make gofmt lint && make -j2 test

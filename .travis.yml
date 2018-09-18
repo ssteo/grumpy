@@ -1,7 +1,31 @@
 language: go
+go:
+  - "1.10.x"
+
 os:
   - linux
   - osx
+before_script:
+  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"  # https://github.com/travis-ci/travis-ci/issues/8920#issuecomment-352661024
 # Run gofmt and lint serially to avoid confusing output. Run tests in parallel
 # for speed.
-script: make gofmt lint && make -j2 test
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo pip2 install pytest pytest-cov coverage; fi
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then pip2 install pytest pytest-cov coverage --user ; fi
+script:
+  # Install the thing
+  - cd grumpy-tools-src
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo pip2 install . ; fi
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then pip2 install . --user ; fi
+  - which grumpy
+  - cd ../grumpy-runtime-src
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo pip2 install . ; fi
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then pip2 install . --user ; fi
+  # Test the thing
+  - cd ../grumpy-tools-src
+  - pytest
+  - cd ../grumpy-runtime-src
+  - make gofmt lint && make -j2 test
+
+# OSX swallows error logs: https://github.com/travis-ci/travis-ci/issues/6018
+after_error:
+  - echo "== End of test log ==""
