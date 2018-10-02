@@ -46,6 +46,7 @@ class Import(object):
 
   MODULE = "<BindType 'module'>"
   MEMBER = "<BindType 'member'>"
+  STAR = "<BindType 'star'>"
 
   def __init__(self, name, script=None, is_native=False):
     self.name = name
@@ -88,12 +89,7 @@ class Importer(algorithm.Visitor):
     imports = []
     for alias in node.names:
       if alias.name == '*':
-        module_name = node.module
-
-        with self._import(module_name, module_name.count('.')) as module:
-          self.writer.write_checked_call1(
-              'πg.LoadMembers(πF, {})', module.expr)
-        return
+        raise util.ImportError(node, 'wildcard member import is not implemented')
       if alias.name.startswith(_NATIVE_MODULE_PREFIX):
         imp = Import(alias.name, is_native=True)
         asname = alias.asname if alias.asname else alias.name.split('/')[-1]
@@ -111,7 +107,13 @@ class Importer(algorithm.Visitor):
 
   def visit_ImportFrom(self, node):
     if any(a.name == '*' for a in node.names):
-      raise util.ImportError(node, 'wildcard member import is not implemented')
+      if len(node.names) != 1:
+        raise util.ImportError(node, 'wildcard imports are not yet mixable')
+
+      # Imported name is * (star). Will bind __all__ the module contents.
+      imp = self._resolve_import(node, node.module)
+      imp.add_binding(Import.STAR, '*', imp.name.count('.'))
+      return [imp]
 
     if not node.level and node.module == '__future__':
       return []
