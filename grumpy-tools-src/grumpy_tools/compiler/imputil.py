@@ -106,7 +106,8 @@ class Importer(algorithm.Visitor):
   def visit_ImportFrom(self, node):
     if any(a.name == '*' for a in node.names):
       if len(node.names) != 1:
-        raise util.ImportError(node, 'wildcard imports are not yet mixable')
+        # TODO: Change to SyntaxError, as CPython does on "from foo import *, bar"
+        raise util.ImportError(node, 'invalid syntax on wildcard import')
 
       # Imported name is * (star). Will bind __all__ the module contents.
       imp = self._resolve_import(node, node.module)
