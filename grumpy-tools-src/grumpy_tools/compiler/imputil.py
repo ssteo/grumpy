@@ -88,8 +88,6 @@ class Importer(algorithm.Visitor):
   def visit_Import(self, node):
     imports = []
     for alias in node.names:
-      if alias.name == '*':
-        raise util.ImportError(node, 'wildcard member import is not implemented')
       if alias.name.startswith(_NATIVE_MODULE_PREFIX):
         imp = Import(alias.name, is_native=True)
         asname = alias.asname if alias.asname else alias.name.split('/')[-1]
