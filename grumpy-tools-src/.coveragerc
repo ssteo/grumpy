@@ -1,0 +1,21 @@
+[run]
+branch = True
+parallel = True
+disable_warnings = no-data-collected
+include =
+    ./*
+omit =
+    venv/*
+    */tests*
+    */migrations/*
+    project/environments/*
+    .git
+    conf/*
+    grumpy_tools/vendor/
+
+[report]
+#skip_covered = True
+
+[html]
+directory = .coverage_html
+
