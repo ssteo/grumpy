@@ -1,31 +1,32 @@
 # Grumpy: Go running Python
 
-[![Build Status](https://travis-ci.org/google/grumpy.svg?branch=master)](https://travis-ci.org/google/grumpy)
+[![Build Status](https://travis-ci.org/alanjds/grumpy.svg?branch=master)](https://travis-ci.org/alanjds/grumpy)
+[![Join the chat at https://gitter.im/grumpy-devel/Lobby](https://badges.gitter.im/grumpy-devel/Lobby.svg)](https://gitter.im/grumpy-devel/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## Overview
 
 Grumpy is a Python to Go source code transcompiler and runtime that is intended
-to be a near drop in replacement for CPython 2.7. The key difference is that it
+to be a near drop-in replacement for CPython 2.7. The key difference is that it
 compiles Python source code to Go source code which is then compiled to native
 code, rather than to bytecode. This means that Grumpy has no VM. The compiled Go
 source code is a series of calls to the Grumpy runtime, a Go library serving a
-similar purpose to the Python C API (although the C API is not directly
-supported).
+similar purpose to the Python C API (although the API is incompatible with
+CPython's).
 
 ## Limitations
 
 ### Things that will probably never be supported by Grumpy
 
 1. `exec`, `eval` and `compile`: These dynamic features of CPython are not
-   supported by Grumpy because Grumpy modules consist of statically compiled Go
+   supported by Grumpy because Grumpy modules consist of statically-compiled Go
    code. Supporting dynamic execution would require bundling Grumpy programs
-   with the compilation toolchain which would be unwieldy and impractically
+   with the compilation toolchain, which would be unwieldy and impractically
    slow.
 
 2. C extension modules: Grumpy has a different API and object layout than
    CPython and so supporting C extensions would be difficult. In principle it's
    possible to support them via an API bridge layer like the one that
-   [JyNI](http://jyni.org) provides for Jython but it would be hard to maintain and
+   [JyNI](http://jyni.org) provides for Jython, but it would be hard to maintain and
    would add significant overhead when calling into and out of extension
    modules.
 
@@ -33,107 +34,174 @@ supported).
 
 There are three basic categories of incomplete functionality:
 
-1. Language features: Most language features are implemented with the notable
-   exception of decorators. There are also a handful of operators that aren't
-   yet supported.
+1. [Language features](https://github.com/google/grumpy/wiki/Missing-features#language-features):
+   Most language features are implemented with the notable exception of
+   [old-style classes](http://stackoverflow.com/questions/54867/what-is-the-difference-between-old-style-and-new-style-classes-in-python).
+   There are also a handful of operators that aren't yet supported.
 
-2. Builtin functions and types: There are a number of missing functions and
-   types in `__builtins__` that have not been implemented. There are also a
-   lot of methods on builtin types that are missing.
+2. [Builtin functions and types](https://github.com/google/grumpy/wiki/Missing-features#builtins):
+   There are a number of missing functions and types in `__builtins__` that have
+   not yet been implemented. There are also a lot of methods on builtin types
+   that are missing.
 
-3. Standard library: The Python standard library is very large and much of it
-   is pure Python, so as the language features and builtins get filled out, many
-   modules will just work. But there are also a number of libraries in CPython
-   that are C extension modules that need to be rewritten.
-   
- To see the status of a particular feature or standard library module, click
- [here](https://github.com/google/grumpy/wiki/Missing-Features).
+3. [Standard library](https://github.com/google/grumpy/wiki/Missing-features#standard-libraries):
+   The Python standard library is very large and much of it is pure Python, so
+   as the language features and builtins get filled out, many modules will
+   just work. But there are also a number of libraries in CPython that are C
+   extension modules which will need to be rewritten.
+
+4. C locale support: Go doesn't support locales in the same way that C does. As such,
+   some functionality that is locale-dependent may not currently work the same as in
+   CPython.
 
 ## Running Grumpy Programs
 
-### Method 1: grumprun:
+### Pre-requisites
+
+The commands ahead assumes that you have Golang installed and a recent
+version of Python 2, `setuptools` and `pip`.
+
+### Method 1: binary package
+
+For convenience, a Python package is provided from the PyPI. During install,
+many Grumpy will be compiled and stored inside your Python installation.
+
+You need Golang preinstalled anyway for the installation to be successful.
+
+```
+pip2 install -U grumpy-runtime -I --no-cache
+(wait about 5 minutes)
+echo "print 'hello, world'" | grumpy run
+```
+
+### Method 1: make run:
 
 The simplest way to execute a Grumpy program is to use `make run`, which wraps a
 shell script called grumprun that takes Python code on stdin and builds and runs
-the code under Grumpy. All of the commands below are assumed to be run from the
-root directory of the Grumpy source code distribution:
+the code under Grumpy:
 
 ```
+cd grumpy-tools-src
+python2 setup.py develop
+cd ../grumpy-runtime-src
 echo "print 'hello, world'" | make run
 ```
 
-### Method 2: grumpc:
+### Method 2: grumpc and grumprun:
 
-For more complicated programs you'll want to compile your Python source code to
+For more complicated programs, you'll want to compile your Python source code to
 Go using grumpc (the Grumpy compiler) and then build the Go code using `go
-build`.  First, write a simple .py script:
+build`. Since Grumpy programs are statically linked, all the modules in a
+program must be findable by the Grumpy toolchain on the GOPATH. Grumpy looks for
+Go packages corresponding to Python modules in the \_\_python\_\_ subdirectory
+of the GOPATH. By convention, this subdirectory is also used for staging Python
+source code, making it similar to the PYTHONPATH.
+
+The first step is to set up the shell so that the Grumpy toolchain and libraries
+can be found. From the root directory of the Grumpy source distribution run:
 
 ```
-echo 'print "hello, world"' > hello.py
-```
-
-Next, build the toolchain and export some environment variables that make the
-toolchain work:
-
-```
+cd grumpy-tools-src
+python2 setup.py develop
+cd ../grumpy-runtime-src
 make
+export PATH=$PWD/build/bin:$PATH
 export GOPATH=$PWD/build
 export PYTHONPATH=$PWD/build/lib/python2.7/site-packages
 ```
 
-Finally, compile the Python script and build a binary from it:
+You will know things are working if you see the expected output from this
+command:
 
 ```
-build/bin/grumpc hello.py > hello.go
-go build -o hello hello.go
+cd grumpy-runtime-src
+echo 'import sys; print sys.version' | grumprun
 ```
 
-Now execute the `./hello` binary to your heart's content.
+Next, we will write our simple Python module into the \_\_python\_\_ directory:
+
+```
+cd grumpy-runtime-src
+echo 'def hello(): print "hello, world"' > $GOPATH/src/__python__/hello.py
+```
+
+To build a Go package from our Python script, run the following:
+
+```
+cd grumpy-runtime-src
+mkdir -p $GOPATH/src/__python__/hello
+grumpc -modname=hello $GOPATH/src/__python__/hello.py > \
+    $GOPATH/src/__python__/hello/module.go
+```
+
+You should now be able to build a Go program that imports the package
+"\_\_python\_\_/hello". We can also import this module into Python programs
+that are built using grumprun:
+
+```
+cd grumpy-runtime-src
+echo 'from hello import hello; hello()' | grumprun
+```
+
+grumprun is doing a few things under the hood here:
+
+1. Compiles the given Python code to a dummy Go package, the same way we
+   produced \_\_python\_\_/hello/module.go above
+2. Produces a main Go package that imports the Go package from step 1. and
+   executes it as our \_\_main\_\_ Python package
+3. Executes `go run` on the main package generated in step 2.
 
 ## Developing Grumpy
 
 There are three main components and depending on what kind of feature you're
 writing, you may need to change one or more of these.
 
-### grumpc
+### Grumpy Tools
 
-Grumpy converts Python programs into Go programs and grumpc is the tool
-responsible for parsing Python code and generating Go code from it. grumpc is
-written in Python and uses the `ast` module to accomplish parsing.
+Grumpy converts Python programs into Go programs and
+`grumpy transpile` is the CLI tool responsible for parsing Python code
+and generating Go code from it. `grumpy transpile` is written in Python
+and uses the [`pythonparser`](https://github.com/m-labs/pythonparser)
+module to accomplish parsing.
 
-The grumpc script itself lives at tools/grumpc. It is supported by a number of
-Python modules in the compiler subdir.
+The CLI main entrypoint lives at `grumpy-tools-src/grumpy_tools/cli.py`.
+It is supported by a number of Python modules in the
+`grumpy-tools-src/grumpy_tools/compiler` subdir.
 
 ### Grumpy Runtime
 
-The Go code generated by grumpc performs operations on data structures that
-represent Python objects in running Grumpy programs. These data structures and
-operations are defined in the `grumpy` Go library (source is in the runtime
-subdir of the source distribution).  This runtime is analogous to the Python C
-API and many of the structures and operations defined by `grumpy` have
-counterparts in CPython.
+The Go code generated by `grumpy transpile` performs operations
+on data structures that represent Python objects in running Grumpy programs.
+These data structures and operations are defined in the `grumpy` Go library
+(source is in the `grumpy-runtime-src/runtime` subdir of the source
+distribution). This runtime is analogous to the Python C API and many of the
+structures and operations defined by `grumpy` have counterparts in CPython.
 
 ### Grumpy Standard Library
 
-Much of the Python standard library is written in Python and so it "just works"
+Much of the Python standard library is written in Python and thus "just works"
 in Grumpy. These parts of the standard library are copied from CPython 2.7
 (possibly with light modifications). For licensing reasons, these files are kept
-in the third_party/stdlib subdir.
+in the `grumpy-runtime-src/third_party` subdir.
 
 The parts of the standard library that cannot be written in pure Python, e.g.
-file and directory operations, are kept in the lib subdir. In CPython these
-kinds of modules are written as C extensions. In Grumpy they are written in
-Python but they use native Go extensions to access facilities not otherwise
-available in Python.
+file and directory operations, are kept in the `grumpy-runtime-src/lib` subdir.
+In CPython these kinds of modules are written as C extensions. In Grumpy they
+are written in Python but they use native Go extensions to access facilities not
+otherwise available in Python.
 
 ### Source Code Overview
 
-- `compiler`: Python package implementating Python -> Go transcompilation logic.
-- `lib`: Grumpy-specific Python standard library implementation.
-- `runtime`: Go source code for the Grumpy runtime library.
-- `third_party/stdlib`: Pure Python standard libraries copied from CPython.
-- `tools`: Transcompilation and utility binaries.
+- `grumpy-tools-src/grumpy_tools/compiler`: Python package implementating Python -> Go transcompilation logic.
+- `grumpy-runtime-src/lib`: Grumpy-specific Python standard library implementation.
+- `grumpy-runtime-src/runtime`: Go source code for the Grumpy runtime library.
+- `grumpy-runtime-src/third_party/ouroboros`: Pure Python standard libraries copied from the
+   [Ouroboros project](https://github.com/pybee/ouroboros).
+- `grumpy-runtime-src/third_party/pypy`: Pure Python standard libraries copied from PyPy.
+- `grumpy-runtime-src/third_party/stdlib`: Pure Python standard libraries copied from CPython.
+- `grumpy-tools-src/grumpy_tools/`: Transcompilation and utility CLI.
 
 ## Contact
 
-Questions? Comments? Drop us a line at [grumpy-users@googlegroups.com](https://groups.google.com/forum/#!forum/grumpy-users).
+Questions? Comments? Drop us a line at [grumpy-users@googlegroups.com](https://groups.google.com/forum/#!forum/grumpy-users)
+or join our [Gitter channel](https://gitter.im/grumpy-devel/Lobby)
