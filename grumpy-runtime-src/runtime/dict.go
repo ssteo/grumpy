@@ -213,7 +213,7 @@ func newDictEntryIterator(f *Frame, d *Dict) (iter dictEntryIterator) {
 		}
 		d.mutex.Unlock(f)
 	}
-	return
+	return iter
 }
 
 // next advances this iterator to the next occupied entry and returns it.
@@ -229,7 +229,7 @@ func (iter *dictEntryIterator) next() (entry dictEntry) {
 		}
 		entry = iter.table[index]
 	}
-	return
+	return entry
 }
 
 // dictVersionGuard is used to detect when a dict has been modified.
@@ -293,13 +293,12 @@ func newStringDict(items map[string]*Object) *Dict {
 	for key, value := range items {
 		table.insertAbsentEntry(dictEntry{hashString(key), NewStr(key).ToObject(), value})
 	}
-	d := &Dict{
+	return &Dict{
 		Object: Object{typ: DictType},
 		read:   &table,
 		used:   int32(len(items)),
 		fill:   int32(len(items)),
 	}
-	return d
 }
 
 func toDictUnsafe(o *Object) *Dict {
@@ -325,7 +324,7 @@ func (d *Dict) promoteWriteToRead() (table dictTable) {
 	// pointer to d.write (which would be bad).
 	atomic.StorePointer(d.unsafeReadTablePointer(), unsafe.Pointer(&table))
 	d.misses = 0
-	return
+	return table
 }
 
 // loadVersion atomically loads and returns d's version.
@@ -347,7 +346,7 @@ func (d *Dict) incVersion() {
 }
 
 // populateWriteTable makes sure that d.write is populated with the dict's
-// table, possibly copying it from the read table.
+// table, possibly copying it from the read table. Lock must be held.
 func (d *Dict) populateWriteTable() dictTable {
 	if d.write == nil {
 		// Copy the read-only table so we can do modifications.
