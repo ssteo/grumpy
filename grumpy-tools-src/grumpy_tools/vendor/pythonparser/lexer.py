@@ -11,6 +11,7 @@ import sys
 if sys.version_info[0] == 3:
     unichr = chr
     byte = lambda x: bytes([x])
+    long = int
 else:
     byte = chr
 

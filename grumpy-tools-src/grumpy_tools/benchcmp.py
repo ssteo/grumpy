@@ -16,10 +16,16 @@
 
 """Runs two benchmark programs and compares their results."""
 
+from __future__ import print_function
+
 import argparse
 import subprocess
 import sys
 
+try:
+  xrange          # Python 2
+except NameError:
+  xrange = range  # Python 3
 
 parser = argparse.ArgumentParser()
 parser.add_argument('prog1')
@@ -37,7 +43,7 @@ def main(args):
     _MergeResults(results2, _RunBenchmark(args.prog2), benchmarks)
   _MergeResults(results2, _RunBenchmark(args.prog2), benchmarks)
   for b in sorted(benchmarks):
-    print b, '{:+.1%}'.format(results2[b] / results1[b] - 1)
+    print(b, '{:+.1%}'.format(results2[b] / results1[b] - 1))
 
 
 def _MergeResults(merged, results, benchmarks):
@@ -65,10 +71,10 @@ def _RunBenchmark(prog):
     line = line.strip()
     if not line:
       continue
-    parts = line.split()
-    if len(parts) != 3:
+    try:
+      name, status, result = line.split()
+    except ValueError:
       _Die('invalid benchmark output: {}', line)
-    name, status, result = parts
     if status != 'PASSED':
       _Die('benchmark failed: {}', line)
     try:
@@ -82,7 +88,7 @@ def _RunBenchmark(prog):
 def _Die(msg, *args):
   if args:
     msg = msg.format(*args)
-  print >> sys.stderr, msg
+  print(msg, file=sys.stderr)
   sys.exit(1)
 
 

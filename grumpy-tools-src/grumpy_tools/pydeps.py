@@ -23,6 +23,11 @@ import sys
 from .compiler import imputil
 from .compiler import util
 
+try:
+  xrange          # Python 2
+except NameError:
+  xrange = range  # Python 3
+
 
 def main(script=None, modname=None, package_dir='', with_imports=False):
   gopath = os.environ['GOPATH']

@@ -18,8 +18,10 @@ __all__ = ['JSONDecoder']
 FLAGS = re.VERBOSE | re.MULTILINE | re.DOTALL
 
 def _floatconstants():
-    nan, = struct.unpack('>d', b'\x7f\xf8\x00\x00\x00\x00\x00\x00')
-    inf, = struct.unpack('>d', b'\x7f\xf0\x00\x00\x00\x00\x00\x00')
+    nan = struct.unpack('>d', b'\x7f\xf8\x00\x00\x00\x00\x00\x00')
+    inf = struct.unpack('>d', b'\x7f\xf0\x00\x00\x00\x00\x00\x00')
+    nan = nan[0]
+    inf = inf[0]
     return nan, inf, -inf
 
 NaN, PosInf, NegInf = _floatconstants()
