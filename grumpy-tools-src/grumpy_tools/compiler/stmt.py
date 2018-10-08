@@ -637,7 +637,7 @@ class StatementVisitor(algorithm.Visitor):
           # Binding a member of the imported module.
           with self.block.alloc_temp() as member:
             self.writer.write_checked_call2(
-                member, 'πg.GetAttr(πF, {}, {}, nil)',
+                member, 'πg.GetAttrImport(πF, {}, {})',
                 mod.expr, self.block.root.intern(binding.value))
             self.block.bind_var(self.writer, binding.alias, member.expr)
 
