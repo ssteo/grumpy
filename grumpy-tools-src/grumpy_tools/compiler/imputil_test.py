@@ -81,11 +81,6 @@ class ImportVisitorTest(unittest.TestCase):
   def tearDown(self):
     shutil.rmtree(self.rootdir)
 
-  def testImportEmptyPath(self):
-    importer = imputil.Importer(None, 'foo', 'foo.py', False)
-    self.assertRaises(util.ImportError, importer.visit,
-                      pythonparser.parse('import bar').body[0])
-
   def testImportTopLevelModule(self):
     imp = copy.deepcopy(self.qux_import)
     imp.add_binding(imputil.Import.MODULE, 'qux', 0)

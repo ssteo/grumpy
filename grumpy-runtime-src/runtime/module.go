@@ -123,7 +123,8 @@ func importOne(f *Frame, name string) (*Object, *BaseException) {
 	o, raised := SysModules.GetItemString(f, name)
 	if raised == nil && o == nil {
 		if c = moduleRegistry[name]; c == nil {
-			raised = f.RaiseType(ImportErrorType, name)
+			msg := fmt.Sprintf("No module named %s", name)
+			raised = f.RaiseType(ImportErrorType, msg)
 		} else {
 			o = newModule(name, c.filename).ToObject()
 			raised = SysModules.SetItemString(f, name, o)

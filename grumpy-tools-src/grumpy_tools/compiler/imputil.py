@@ -98,7 +98,8 @@ class Importer(algorithm.Visitor):
         asname = alias.asname if alias.asname else alias.name.split('/')[-1]
         imp.add_binding(Import.MODULE, asname, 0)
       else:
-        imp = self._resolve_import(node, alias.name)
+        imp = self._resolve_import(node, alias.name, allow_error=True)
+
         if alias.asname:
           imp.add_binding(Import.MODULE, alias.asname, imp.name.count('.'))
         else:
@@ -155,7 +156,7 @@ class Importer(algorithm.Visitor):
         imports.append(imp)
     return imports
 
-  def _resolve_import(self, node, modname):
+  def _resolve_import(self, node, modname, allow_error=False):
     if not self.absolute_import and self.package_dir:
       script = find_script(self.package_dir, modname)
       if script:
@@ -164,6 +165,8 @@ class Importer(algorithm.Visitor):
       script = find_script(dirname, modname)
       if script:
         return Import(modname, script)
+    if allow_error:
+      return Import(modname, '')
     raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
 
   def _resolve_relative_import(self, level, node, modname):

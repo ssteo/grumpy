@@ -346,6 +346,28 @@ class StatementVisitorTest(unittest.TestCase):
     self.assertEqual(0, result[0])
     self.assertIn('<function sleep at', result[1])
 
+  def testImportTryExcept(self):
+    result = _GrumpRun(textwrap.dedent("""\
+        try:
+          import inexistantmodule
+        except ImportError:
+          from time import sleep as inexistantmodule
+        print inexistantmodule
+    """))
+    self.assertEqual(0, result[0])
+    self.assertIn('<function sleep at', result[1])
+
+  def testImportFromTryExcept(self):
+    result = _GrumpRun(textwrap.dedent("""\
+        try:
+          from time import inexistantfunction
+        except ImportError:
+          from time import sleep
+        print sleep
+    """))
+    self.assertEqual(0, result[0])
+    self.assertIn('<function sleep at', result[1])
+
   def testPrintFunction(self):
     want = "abc\n123\nabc 123\nabcx123\nabc 123 "
     self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
