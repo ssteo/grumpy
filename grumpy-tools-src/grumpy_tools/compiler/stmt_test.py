@@ -346,6 +346,17 @@ class StatementVisitorTest(unittest.TestCase):
     self.assertEqual(0, result[0])
     self.assertIn('<function sleep at', result[1])
 
+  def testImportTryExcept(self):
+    result = _GrumpRun(textwrap.dedent("""\
+        try:
+          import inexistantmodule
+        except ImportError:
+          from time import sleep as inexistantmodule
+        print inexistantmodule
+    """))
+    self.assertEqual(0, result[0])
+    self.assertIn('<function inexistantmodule at', result[1])
+
   def testImportFromTryExcept(self):
     result = _GrumpRun(textwrap.dedent("""\
         try:
