@@ -116,7 +116,7 @@ class Importer(algorithm.Visitor):
         raise util.ImportError(node, 'invalid syntax on wildcard import')
 
       # Imported name is * (star). Will bind __all__ the module contents.
-      imp = self._resolve_import(node, node.module)
+      imp = self._resolve_import(node, node.module, allow_error=True)
       imp.add_binding(Import.STAR, '*', imp.name.count('.'))
       return [imp]
 
