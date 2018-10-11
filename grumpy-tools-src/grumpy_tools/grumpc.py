@@ -103,8 +103,11 @@ def _recursively_transpile(import_objects, ignore=None):
   for imp_obj in import_objects:
     if not imp_obj.is_native:
       if not imp_obj.script:
+        logger.debug("Importing '%s' will raise ImportError", imp_obj.name)
+        ignore.add(imp_obj.name)
         continue  # Let the ImportError raise on run time
       elif imp_obj.name in ignore:
+        # logger.debug("Already collected '%s'. Ignoring", imp_obj.name)
         continue  # Do not do cyclic imports
 
       # Recursively compile the discovered imports
