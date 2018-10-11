@@ -59,6 +59,20 @@ class Import(object):
     self.is_native = is_native
     self.bindings = []
 
+  def __repr__(self):
+    if self.bindings:
+      bind_type = self.bindings[0].bind_type
+      if bind_type == Import.MODULE:
+        bind_type = 'MODULE'
+      elif bind_type == Import.MEMBER:
+        bind_type = 'MEMBER'
+      elif bind_type == Import.STAR:
+        bind_type = 'STAR'
+    else:
+      bind_type = 'NONE'
+    repr_ = '<Import %s:%s>' % (self.name, bind_type.lower())
+    return repr_
+
   def add_binding(self, bind_type, alias, value):
     self.bindings.append(Import.Binding(bind_type, alias, value))
 
