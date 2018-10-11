@@ -79,7 +79,7 @@ func TestImportModule(t *testing.T) {
 		{
 			"noexist",
 			nil,
-			mustCreateException(ImportErrorType, "noexist"),
+			mustCreateException(ImportErrorType, "No module named noexist"),
 			newStringDict(map[string]*Object{"invalid": invalidModule}),
 		},
 		{

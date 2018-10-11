@@ -355,7 +355,7 @@ class StatementVisitorTest(unittest.TestCase):
         print inexistantmodule
     """))
     self.assertEqual(0, result[0])
-    self.assertIn('<function inexistantmodule at', result[1])
+    self.assertIn('<function sleep at', result[1])
 
   def testImportFromTryExcept(self):
     result = _GrumpRun(textwrap.dedent("""\
