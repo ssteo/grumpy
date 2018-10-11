@@ -98,19 +98,22 @@ def _collect_deps(script, modname, pep3147_folders, from_cache=False, update_cac
   return deps, import_objects
 
 
-def _recursively_transpile(import_objects):
+def _recursively_transpile(import_objects, ignore=None):
+  ignore = ignore or set()
   for imp_obj in import_objects:
     if not imp_obj.is_native:
       if not imp_obj.script:
         continue  # Let the ImportError raise on run time
+      elif imp_obj.name in ignore:
+        continue  # Do not do cyclic imports
 
       # Recursively compile the discovered imports
       # TODO: Fix cyclic imports?
       name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
-      main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False)
+      main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False, ignore=ignore)
       if name.endswith('.__init__'):
         name = name.rpartition('.__init__')[0]
-        main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False)
+        main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False, ignore=ignore)
 
 
 def _transpile(script, modname, imports, visitor, mod_block):
@@ -142,7 +145,9 @@ def _transpile(script, modname, imports, visitor, mod_block):
   return file_buffer
 
 
-def main(stream=None, modname=None, pep3147=False, recursive=False, return_result=True):
+def main(stream=None, modname=None, pep3147=False, recursive=False, return_result=True, ignore=None):
+  ignore = ignore or set()
+  ignore.add(modname)
   script = os.path.abspath(stream.name)
   assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script, modname)
 
@@ -163,7 +168,7 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
     file_buffer = None
 
   if recursive:
-    _recursively_transpile(import_objects)
+    _recursively_transpile(import_objects, ignore=ignore)
 
   if pep3147:
     new_gopath = pep3147_folders['gopath_folder']
