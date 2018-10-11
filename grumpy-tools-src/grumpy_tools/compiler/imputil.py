@@ -161,7 +161,7 @@ class Importer(algorithm.Visitor):
       except (util.ImportError, AttributeError):
         # A member (not a submodule) is being imported, so bind it.
         if not member_imp:
-          member_imp = resolver(node, node.module)
+          member_imp = resolver(node, node.module, allow_error=True)
           imports.append(member_imp)
         member_imp.add_binding(Import.MEMBER, asname, alias.name)
       else:
@@ -183,7 +183,7 @@ class Importer(algorithm.Visitor):
       return Import(modname, '')
     raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
 
-  def _resolve_relative_import(self, level, node, modname):
+  def _resolve_relative_import(self, level, node, modname, allow_error=False):
     if not self.package_dir:
       raise util.ImportError(node, 'attempted relative import in non-package')
     uplevel = level - 1
@@ -193,7 +193,7 @@ class Importer(algorithm.Visitor):
     dirname = os.path.normpath(os.path.join(
         self.package_dir, *(['..'] * uplevel)))
     script = find_script(dirname, modname or '__init__')
-    if not script:
+    if not script and not allow_error:
       raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
     parts = self.package_name.split('.')
     return Import('.'.join(parts[:len(parts)-uplevel] + ([modname] if modname else [])), script)
