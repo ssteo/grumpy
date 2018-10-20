@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -235,13 +236,45 @@ func TestDictGetItem(t *testing.T) {
 
 // BenchmarkDictGetItem is to keep an eye on the speed of contended dict access
 // in a fast read loop.
+func BenchmarkDictSetItem(b *testing.B) {
+	objs := make([]*Object, 128)
+	for i := range objs {
+		objs[i] = NewInt(i).ToObject()
+	}
+
+	bench := func(n int) func(*testing.B) {
+		return func(b *testing.B) {
+			f := NewRootFrame()
+			var raised *BaseException
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				d := NewDict()
+				for _, o := range objs[:n] {
+					raised = d.SetItem(f, o, o)
+				}
+			}
+			runtime.KeepAlive(raised)
+		}
+	}
+	b.Run("3-elements", bench(3))
+	b.Run("5-elements", bench(5))
+	b.Run("8-elements", bench(8))
+	b.Run("12-elements", bench(12))
+	b.Run("16-elements", bench(16))
+	b.Run("24-elements", bench(24))
+	b.Run("32-elements", bench(32))
+}
+
+// BenchmarkDictGetItem is to keep an eye on the speed of contended dict access
+// in a fast read loop.
 func BenchmarkDictGetItem(b *testing.B) {
 	d := newTestDict(
 		"foo", 1,
 		"bar", 2,
 		None, 3,
 		4, 5)
-	k := NewInt(4).ToObject()
+	f := NewRootFrame()
+	keys := d.Keys(f)
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -249,7 +282,37 @@ func BenchmarkDictGetItem(b *testing.B) {
 		var ret *Object
 		var raised *BaseException
 		for pb.Next() {
-			ret, raised = d.GetItem(f, k)
+			for _, k := range keys.elems {
+				ret, raised = d.GetItem(f, k)
+			}
+		}
+		runtime.KeepAlive(ret)
+		runtime.KeepAlive(raised)
+	})
+}
+
+func BenchmarkDictGetItemBig(b *testing.B) {
+	d := newTestDict(
+		"foo", 1,
+		"bar", 2,
+		None, 3,
+		4, 5)
+
+	f := NewRootFrame()
+	for j := 100; j < 200; j++ {
+		d.SetItemString(f, strconv.Itoa(j), None)
+	}
+	keys := d.Keys(f)
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		f := NewRootFrame()
+		var ret *Object
+		var raised *BaseException
+		for pb.Next() {
+			for _, k := range keys.elems {
+				ret, raised = d.GetItem(f, k)
+			}
 		}
 		runtime.KeepAlive(ret)
 		runtime.KeepAlive(raised)
@@ -316,6 +379,14 @@ func BenchmarkDictIterKeys(b *testing.B) {
 						f.RestoreExc(nil, nil)
 						break
 					}
+					ret, raised = d.GetItem(f, ret)
+					if raised != nil {
+						if !raised.isInstance(StopIterationType) {
+							b.Fatalf("iteration failed with: %v", raised)
+						}
+						f.RestoreExc(nil, nil)
+						break
+					}
 				}
 			}
 			runtime.KeepAlive(ret)
@@ -332,6 +403,7 @@ func BenchmarkDictIterKeys(b *testing.B) {
 	b.Run("6-elements", bench(newTestDict(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)))
 	b.Run("7-elements", bench(newTestDict(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)))
 	b.Run("8-elements", bench(newTestDict(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)))
+	b.Run("9-elements", bench(newTestDict(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)))
 }
 
 func BenchmarkDictIterValues(b *testing.B) {
