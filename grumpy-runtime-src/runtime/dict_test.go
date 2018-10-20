@@ -523,7 +523,7 @@ func TestDictIter(t *testing.T) {
 	deletedItemDict.DelItem(f, hashFoo)
 	cases := []invokeTestCase{
 		{args: wrapArgs(NewDict()), want: NewTuple().ToObject()},
-		{args: wrapArgs(newStringDict(map[string]*Object{"foo": NewInt(1).ToObject(), "bar": NewInt(2).ToObject()})), want: newTestTuple("foo", "bar").ToObject()},
+		{args: wrapArgs(newTestDict("foo", 1, "bar", 2)), want: newTestTuple("foo", "bar").ToObject()},
 		{args: wrapArgs(newTestDict(123, True, "foo", False)), want: newTestTuple(123, "foo").ToObject()},
 		{args: wrapArgs(deletedItemDict), want: newTestTuple("foo").ToObject()},
 	}
@@ -594,7 +594,7 @@ func TestDictItems(t *testing.T) {
 	deletedItemDict.DelItem(f, hashFoo)
 	cases := []invokeTestCase{
 		{args: wrapArgs(NewDict()), want: NewList().ToObject()},
-		{args: wrapArgs(newStringDict(map[string]*Object{"foo": NewInt(1).ToObject(), "bar": NewInt(2).ToObject()})), want: newTestList(newTestTuple("foo", 1), newTestTuple("bar", 2)).ToObject()},
+		{args: wrapArgs(newTestDict("foo", 1, "bar", 2)), want: newTestList(newTestTuple("foo", 1), newTestTuple("bar", 2)).ToObject()},
 		{args: wrapArgs(newTestDict(123, True, "foo", False)), want: newTestList(newTestTuple(123, true), newTestTuple("foo", false)).ToObject()},
 		{args: wrapArgs(deletedItemDict), want: newTestList(newTestTuple("foo", None)).ToObject()},
 	}
@@ -635,7 +635,7 @@ func TestDictKeyIterModified(t *testing.T) {
 func TestDictKeys(t *testing.T) {
 	cases := []invokeTestCase{
 		{args: wrapArgs(NewDict()), want: NewList().ToObject()},
-		{args: wrapArgs(newTestDict("foo", None, 42, None)), want: newTestList(42, "foo").ToObject()},
+		{args: wrapArgs(newTestDict("foo", None, 42, None)), want: newTestList("foo", 42).ToObject()},
 	}
 	for _, cas := range cases {
 		if err := runInvokeMethodTestCase(DictType, "keys", &cas); err != "" {
