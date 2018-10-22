@@ -547,9 +547,8 @@ func builtinOrd(f *Frame, args Args, _ KWArgs) (*Object, *BaseException) {
 }
 
 func builtinPower(f *Frame, args Args, kwargs KWArgs) (*Object, *BaseException) {
-	argc := len(args)
 	expectedTypes := []*Type{ObjectType, ObjectType}
-	if argc == 3 {
+	if len(args) == 3 {
 		return nil, f.RaiseType(NotImplementedErrorType, "third parameter is not supported now")
 	}
 	if raised := checkFunctionArgs(f, "pow", args, expectedTypes...); raised != nil {
