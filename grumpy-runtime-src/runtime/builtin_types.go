@@ -107,6 +107,7 @@ var builtinTypes = map[*Type]*builtinTypeInfo{
 	BoolType:                      {init: initBoolType, global: true},
 	ByteArrayType:                 {init: initByteArrayType, global: true},
 	BytesWarningType:              {global: true},
+	callableIteratorType:          {init: initCallableIteratorType},
 	CodeType:                      {},
 	ComplexType:                   {init: initComplexType, global: true},
 	ClassMethodType:               {init: initClassMethodType, global: true},
@@ -552,10 +553,18 @@ func builtinIsSubclass(f *Frame, args Args, kwargs KWArgs) (*Object, *BaseExcept
 }
 
 func builtinIter(f *Frame, args Args, kwargs KWArgs) (*Object, *BaseException) {
-	if raised := checkFunctionArgs(f, "iter", args, ObjectType); raised != nil {
+	argc := len(args)
+	expectedTypes := []*Type{ObjectType, ObjectType}
+	if argc == 1 {
+		expectedTypes = expectedTypes[:1]
+	}
+	if raised := checkFunctionArgs(f, "iter", args, expectedTypes...); raised != nil {
 		return nil, raised
 	}
-	return Iter(f, args[0])
+	if argc == 1 {
+		return Iter(f, args[0])
+	}
+	return IterCallable(f, args[0], args[1])
 }
 
 func builtinLen(f *Frame, args Args, kwargs KWArgs) (*Object, *BaseException) {

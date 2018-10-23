@@ -457,9 +457,8 @@ func ISub(f *Frame, v, w *Object) (*Object, *BaseException) {
 
 // Iter implements the Python iter() builtin. It returns an iterator for o if
 // o is iterable. Otherwise it raises TypeError.
-// Note that the iter(f, sentinel) form is not yet supported.
+// Note that the iter(f, sentinel) form is implemented by IterCallable.
 func Iter(f *Frame, o *Object) (*Object, *BaseException) {
-	// TODO: Support iter(f, sentinel) usage.
 	iter := o.typ.slots.Iter
 	if iter != nil {
 		return iter.Fn(f, o)
@@ -468,6 +467,18 @@ func Iter(f *Frame, o *Object) (*Object, *BaseException) {
 		return newSeqIterator(o), nil
 	}
 	return nil, f.RaiseType(TypeErrorType, fmt.Sprintf("'%s' object is not iterable", o.typ.Name()))
+}
+
+// IterCallable implements the Python iter(f, sentintel) builtin.
+// The iterator created in this case will call o with no arguments for each call to its next() method;
+// if the value returned is equal to sentinel, StopIteration will be raised, otherwise the value will be returned.
+// It raises TypeError if o is not callable.
+func IterCallable(f *Frame, o *Object, sentinel *Object) (*Object, *BaseException) {
+	call := o.typ.slots.Call
+	if call == nil {
+		return nil, f.RaiseType(TypeErrorType, "iter(v, w): v must be callable")
+	}
+	return newCallableIterator(o, sentinel), nil
 }
 
 // IXor returns the result of v.__ixor__ if defined, otherwise falls back to
