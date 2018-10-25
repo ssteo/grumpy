@@ -26,9 +26,9 @@ import os.path
 import sys
 
 from grumpy_tools.compiler import util
-from grumpy_tools.vendor import pythonparser
-from grumpy_tools.vendor.pythonparser import algorithm
-from grumpy_tools.vendor.pythonparser import ast
+import pythonparser
+from pythonparser import algorithm
+from pythonparser import ast
 
 try:
   xrange          # Python 2

@@ -33,7 +33,7 @@ from .compiler import block
 from .compiler import imputil
 from .compiler import stmt
 from .compiler import util
-from .vendor import pythonparser
+import pythonparser
 from .pep_support.pep3147pycache import make_transpiled_module_folders, should_refresh, set_checksum
 from . import pydeps
 
