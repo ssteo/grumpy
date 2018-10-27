@@ -536,6 +536,15 @@ func (d *Dict) putItem(f *Frame, key, value *Object, overwrite bool) (*Object, *
 		if overwrite {
 			t.writeValue(entry, value)
 			d.incVersion()
+			if value == nil && t.used < t.capa/8 && t.fill > t.capa/8*5 {
+				if newTable, ok := t.growTable(); ok {
+					d.storeTable(newTable)
+					// doesn't increment version here, because we didn't change content in growTable.
+				} else {
+					d.mutex.Unlock(f)
+					panic("some unknown error on downsizing dictionary")
+				}
+			}
 		}
 	}
 	d.mutex.Unlock(f)
