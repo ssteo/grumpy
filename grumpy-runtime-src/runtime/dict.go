@@ -490,6 +490,8 @@ func (d *Dict) putItem(f *Frame, key, value *Object, overwrite bool) (*Object, *
 	}
 	hashv := hash.Value()
 	d.mutex.Lock(f)
+	// we do not use `defer d.mutex.Unlock(f)` here because defer is not free: it slows putItem by 30% .
+	// Since putItem is a hot place, lets Unlock manually.
 	t := d.table
 	v := d.version
 	index, entry, raised := t.lookupEntry(f, hashv, key)
@@ -841,8 +843,8 @@ func dictPopItem(f *Frame, args Args, _ KWArgs) (item *Object, raised *BaseExcep
 	}
 	d := toDictUnsafe(args[0])
 	d.mutex.Lock(f)
+	defer d.mutex.Unlock(f)
 	if d.table.used == 0 {
-		d.mutex.Unlock(f)
 		return nil, f.RaiseType(KeyErrorType, "popitem(): dictionary is empty")
 	}
 	// unfortunately, 3.7 standardized popping last key-value
@@ -853,7 +855,6 @@ func dictPopItem(f *Frame, args Args, _ KWArgs) (item *Object, raised *BaseExcep
 			entry.storeValue(nil)
 			d.table.incUsed(-1)
 			d.incVersion()
-			d.mutex.Unlock(f)
 			return item, nil
 		}
 	}
