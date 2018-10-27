@@ -509,7 +509,7 @@ func (d *Dict) putItem(f *Frame, key, value *Object, overwrite bool) (*Object, *
 	if entry == nil || entry.value == nil {
 		// either key were never inserted, or it was deleted
 		if value != nil {
-			if d.table == nil || d.table.fill == d.table.capa {
+			if t == nil || t.fill == d.table.capa {
 				if newTable, ok := d.table.growTable(); ok {
 					newTable.insertAbsentEntry(&dictEntry{
 						hash:  hashv,
