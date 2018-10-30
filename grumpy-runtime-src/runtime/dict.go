@@ -28,19 +28,30 @@ var (
 	dictItemIteratorType  = newBasisType("dictionary-itemiterator", reflect.TypeOf(dictItemIterator{}), toDictItemIteratorUnsafe, ObjectType)
 	dictKeyIteratorType   = newBasisType("dictionary-keyiterator", reflect.TypeOf(dictKeyIterator{}), toDictKeyIteratorUnsafe, ObjectType)
 	dictValueIteratorType = newBasisType("dictionary-valueiterator", reflect.TypeOf(dictValueIterator{}), toDictValueIteratorUnsafe, ObjectType)
-	deletedEntry          = &dictEntry{}
 )
 
 const (
 	// maxDictSize is the largest number of entries a dictionary can hold.
 	// Dict sizes must be a power of two and this is the largest such
-	// number representable as int32.
-	maxDictSize = 1 << 30
-	minDictSize = 8
+	// number multiplied by 2 is representable as uint32.
+	maxDictSize            = 1 << 30
+	minDictSize            = 4
+	maxDictWithoutHashSize = 8
 )
 
-// dictEntry represents a slot in the hash table of a Dict. Entries are
-// intended to be immutable so that they can be read atomically.
+// dictEntry represents an element in array of entries of the dictTable of a Dict.
+//
+// hash and key field are immutable once set, therefore, they could be checked
+// almost without synchronization (synchronization is made at dictTable level).
+// They not overwritten even when entry were deleted. Deleted entry is detected
+// by nil value.
+//
+// value is mutable, and therefore should be written and read with atomic
+// (except insertAbsentEntry, since it is synced on Dict level).
+// value is changed in a way nil->non-nil->non-nil->...->non-nil->nil. Once
+// it is set to nil, it should not be overwritten again. It is not hard demand,
+// but it simplifies a bit, and allows to preserve ordering, ie if dict had
+// no key (since it were deleted) then after insertion it should be last.
 type dictEntry struct {
 	hash  int
 	key   *Object
@@ -48,169 +59,254 @@ type dictEntry struct {
 }
 
 // dictTable is the hash table underlying Dict.
+// It preserves insertion order of key by using array of entries and indices
+// into array in a hash part.
+// For concurrency, indices and entries pointers are never overwritten.
+// When entries array is full, new dictTable is created.
+// Hash part is twice larger than entries array, therefore, there is no need
+// to trace its fill factor separately.
+// Index to array is 1 based, and zero means never-written empty element.
+// Index is not cleared when entry deleted, but could be overwritten when
+// same key inserted again.
+// Index should be written with atomic after new entry is written (except insertAbsentEntry),
+// therefore lookupEntry could rely on it for synchronization.
+// fill field also plays important role in synchronization: it should be incremented
+// with atomic after new entry is written (except insertAbsentEntry). Using this
+// fact, and entry.key immutability, iteration could access key without synchronization,
+// though it still should check entry.value using atomic.
 type dictTable struct {
-	// used is the number of slots in the entries table that contain values.
-	used int32
+	// used is real number of alive values in a table
+	used uint32
 	// fill is the number of slots that are used or once were used but have
 	// since been cleared. Thus used <= fill <= len(entries).
-	fill int
-	// entries is a slice of immutable dict entries. Although elements in
-	// the slice will be modified to point to different dictEntry objects
-	// as the dictionary is updated, the slice itself (i.e. location in
-	// memory and size) will not change for the lifetime of a dictTable.
-	// When the table is no longer large enough to hold a dict's contents,
-	// a new dictTable will be created.
-	entries []*dictEntry
+	// it is like len(entries) if entries were slice
+	fill uint32
+	// capa is a real capacity of entries, ie cap(entries) if entries were slice
+	capa uint32
+	// mask is len(indicies)-1 , and as we use power-of-two tables, it is
+	// used for index calculation: hash&mask == hash%len(indices)
+	mask uint32
+	// indices is a hash part of dictTable. It contains indices into entries array.
+	indices *[maxDictSize * 2]uint32
+	// entries is a an array of entries. It is used to keep insertion order of
+	// entries.
+	entries *[maxDictSize]dictEntry
 }
 
 // newDictTable allocates a table where at least minCapacity entries can be
 // accommodated. minCapacity must be <= maxDictSize.
-func newDictTable(minCapacity int) *dictTable {
-	// This takes the given capacity and sets all bits less than the highest bit.
-	// Adding 1 to that value causes the number to become a multiple of 2 again.
-	// The minDictSize is mixed in to make sure the resulting value is at least
-	// that big. This implementation makes the function able to be inlined, as
-	// well as allows for complete evaluation of constants at compile time.
-	numEntries := (minDictSize - 1) | minCapacity
-	numEntries |= numEntries >> 1
-	numEntries |= numEntries >> 2
-	numEntries |= numEntries >> 4
-	numEntries |= numEntries >> 8
-	numEntries |= numEntries >> 16
-	return &dictTable{entries: make([]*dictEntry, numEntries+1)}
+func newDictTable(numEntries uint32) *dictTable {
+	// It rounds required to nearest power of two using bit trick if neccessary.
+	// It doesn't increase capacity if it is already power of two, unless it is
+	// less than minDictSize.
+	// For tables smaller than maxDictWithoutHashSize indices array is not allocated.
+	if numEntries <= minDictSize {
+		numEntries = minDictSize
+	} else if (numEntries-1)&numEntries != 0 {
+		numEntries |= numEntries >> 1
+		numEntries |= numEntries >> 2
+		numEntries |= numEntries >> 4
+		numEntries |= numEntries >> 8
+		numEntries |= numEntries >> 16
+		numEntries++
+	}
+	t := &dictTable{
+		capa:    numEntries,
+		entries: (*[maxDictSize]dictEntry)(unsafe.Pointer(&make([]dictEntry, numEntries)[0])),
+	}
+	if numEntries > maxDictWithoutHashSize {
+		t.mask = numEntries*2 - 1
+		t.indices = (*[maxDictSize * 2]uint32)(unsafe.Pointer(&make([]uint32, numEntries*2)[0]))
+	}
+	return t
 }
 
-// loadEntry atomically loads the i'th entry in t and returns it.
-func (t *dictTable) loadEntry(i int) *dictEntry {
-	p := (*unsafe.Pointer)(unsafe.Pointer(&t.entries[i]))
-	return (*dictEntry)(atomic.LoadPointer(p))
+func (t *dictTable) loadIndex(i uint32) uint32 {
+	return atomic.LoadUint32(&t.indices[i])
 }
 
-// storeEntry atomically sets the i'th entry in t to entry.
-func (t *dictTable) storeEntry(i int, entry *dictEntry) {
-	p := (*unsafe.Pointer)(unsafe.Pointer(&t.entries[i]))
-	atomic.StorePointer(p, unsafe.Pointer(entry))
+func (t *dictTable) storeIndex(i, idx uint32) {
+	atomic.StoreUint32(&t.indices[i], idx)
 }
 
 func (t *dictTable) loadUsed() int {
-	return int(atomic.LoadInt32(&t.used))
+	if t == nil {
+		return 0
+	}
+	return int(atomic.LoadUint32(&t.used))
 }
 
 func (t *dictTable) incUsed(n int) {
-	atomic.AddInt32(&t.used, int32(n))
+	atomic.AddUint32(&t.used, uint32(n))
+}
+
+func (t *dictTable) loadFill() uint32 {
+	if t == nil {
+		return 0
+	}
+	return atomic.LoadUint32(&t.fill)
+}
+
+func (t *dictTable) incFill(n int) {
+	atomic.AddUint32(&t.fill, uint32(n))
+}
+
+func (t *dictEntry) loadValue() *Object {
+	p := (*unsafe.Pointer)(unsafe.Pointer(&t.value))
+	return (*Object)(atomic.LoadPointer(p))
+}
+
+func (t *dictEntry) storeValue(o *Object) {
+	p := (*unsafe.Pointer)(unsafe.Pointer(&t.value))
+	atomic.StorePointer(p, unsafe.Pointer(o))
+}
+
+func (t *dictEntry) swapValue(o *Object) *Object {
+	p := (*unsafe.Pointer)(unsafe.Pointer(&t.value))
+	return (*Object)(atomic.SwapPointer(p, unsafe.Pointer(o)))
 }
 
 // insertAbsentEntry adds the populated entry to t assuming that the key
 // specified in entry is absent from t. Since the key is absent, no key
 // comparisons are necessary to perform the insert.
+// It doesn't use atomic instructions and there fore it should operate only on
+// non-yet reachable table. Dict.storeTable is used as synchronization point.
 func (t *dictTable) insertAbsentEntry(entry *dictEntry) {
-	mask := uint(len(t.entries) - 1)
-	i := uint(entry.hash) & mask
-	perturb := uint(entry.hash)
-	index := i
-	// The key we're trying to insert is known to be absent from the dict
-	// so probe for the first nil entry.
-	for ; t.entries[index] != nil; index = i & mask {
-		i, perturb = dictNextIndex(i, perturb)
+	if t.fill == t.capa {
+		panic("overrun")
 	}
-	t.entries[index] = entry
-	t.incUsed(1)
+	if mask := t.mask; mask != 0 {
+		i := uint32(entry.hash) & mask
+		perturb := uint(entry.hash)
+		index := i
+		// The key we're trying to insert is known to be absent from the dict
+		// so probe for the first zero entry.
+		for ; t.indices[index] != 0; index = i & mask {
+			i, perturb = dictNextIndex(i, perturb)
+		}
+		t.indices[index] = t.fill + 1
+	}
+	t.entries[t.fill] = *entry
+	t.used++
 	t.fill++
 }
 
-// lookupEntry returns the index and entry in t with the given hash and key.
-// Elements in the table are updated with immutable entries atomically and
-// lookupEntry loads them atomically. So it is not necessary to lock the dict
-// to do entry lookups in a consistent way.
-func (t *dictTable) lookupEntry(f *Frame, hash int, key *Object) (int, *dictEntry, *BaseException) {
-	mask := uint(len(t.entries) - 1)
-	i, perturb := uint(hash)&mask, uint(hash)
-	// free is the first slot that's available. We don't immediately use it
-	// because it has been previously used and therefore an exact match may
-	// be found further on.
-	free := -1
-	var freeEntry *dictEntry
-	index := int(i & mask)
-	entry := t.loadEntry(index)
-	for {
-		if entry == nil {
-			if free != -1 {
-				index = free
-				// Store the entry instead of fetching by index
-				// later since it may have changed by then.
-				entry = freeEntry
+// lookupEntry returns the index to indices table and entry in entries with the given hash and key.
+// Non-nil entry could be returned if entry were deleted, therefore entry.value should be checked after.
+// When t.indices is allocated, it uses synchronization on t.fill, otherwise, it uses synchronization
+// on index (since it is written atomically after entry is written).
+// Therefore it is not necessary to lock the dict to do entry lookups in a consistent way.
+// When entry is not found, returned index points into empty place in t.indices.
+func (t *dictTable) lookupEntry(f *Frame, hash int, key *Object) (uint32, *dictEntry, *BaseException) {
+	if t == nil {
+		return 0, nil, nil
+	}
+	mask := t.mask
+	if mask == 0 {
+		// need to iterate in reverse order to find inserted-after-deleted entries
+		for eidx := t.loadFill(); eidx > 0; eidx-- {
+			entry := &t.entries[eidx-1]
+			if entry.hash == hash {
+				o, raised := Eq(f, entry.key, key)
+				if raised != nil {
+					return 0, nil, raised
+				}
+				eq, raised := IsTrue(f, o)
+				if raised != nil {
+					return 0, nil, raised
+				}
+				if eq {
+					return 0, entry, nil
+				}
 			}
-			break
 		}
-		if entry == deletedEntry {
-			if free == -1 {
-				free = index
-			}
-		} else if entry.hash == hash {
+		return 0, nil, nil
+	}
+	i, perturb := uint32(hash)&mask, uint(hash)
+	index := i & mask
+	for {
+		idx := t.loadIndex(index)
+		if idx == 0 {
+			return index, nil, nil
+		}
+		eidx := idx - 1
+		entry := &t.entries[eidx]
+		if entry.hash == hash {
 			o, raised := Eq(f, entry.key, key)
 			if raised != nil {
-				return -1, nil, raised
+				return 0, nil, raised
 			}
 			eq, raised := IsTrue(f, o)
 			if raised != nil {
-				return -1, nil, raised
+				return 0, nil, raised
 			}
 			if eq {
-				break
+				return index, entry, nil
 			}
 		}
 		i, perturb = dictNextIndex(i, perturb)
-		index = int(i & mask)
-		entry = t.loadEntry(index)
+		index = i & mask
 	}
-	return index, entry, nil
 }
 
-// writeEntry replaces t's entry at the given index with entry. If writing
-// entry would cause t's fill ratio to grow too large then a new table is
-// created, the entry is instead inserted there and that table is returned. t
-// remains unchanged. When a sufficiently sized table cannot be created, false
-// will be returned for the second value, otherwise true will be returned.
-func (t *dictTable) writeEntry(f *Frame, index int, entry *dictEntry) (*dictTable, bool) {
-	if t.entries[index] == deletedEntry {
-		t.storeEntry(index, entry)
-		t.incUsed(1)
-		return nil, true
+// writeNewEntry writes entry at the end of entries array, and its index
+// into position, returned by previously called lookupEntry (so, index
+// points into empty position or position bounded with the same key).
+// It differs from insertAbsentEntry because a) index position is known,
+// b) it has to use atomics to store index and increment t.fill.
+func (t *dictTable) writeNewEntry(index uint32, nentry *dictEntry) {
+	eidx := t.fill
+	t.entries[eidx] = *nentry
+	if t.mask != 0 {
+		// store index atomically after entry is stored to synchronize
+		// with lookupEntry
+		t.storeIndex(index, eidx+1)
 	}
-	if t.entries[index] != nil {
-		t.storeEntry(index, entry)
-		return nil, true
+	t.incUsed(1)
+	// increment fill atomically after entry is stored to synchronize
+	// with iteration.
+	t.incFill(1)
+}
+
+// writeValue rewrites value in non-empty entry.
+// Old value should be non-nil and therefore it is not checked.
+// While it is not hard demand, but it is part of insertion-order keeping.
+func (t *dictTable) writeValue(entry *dictEntry, value *Object) {
+	entry.storeValue(value)
+	if value == nil {
+		t.incUsed(-1)
 	}
-	if (t.fill+1)*3 <= len(t.entries)*2 {
-		// New entry does not necessitate growing the table.
-		t.storeEntry(index, entry)
-		t.incUsed(1)
-		t.fill++
-		return nil, true
+}
+
+// growTable allocates table at least twice larger than already used space.
+// It should be called when t.fill == t.capa .
+func (t *dictTable) growTable() (*dictTable, bool) {
+	if t == nil {
+		// allocate minimal table
+		return newDictTable(0), true
 	}
-	// Grow the table.
-	var n int
-	if t.used <= 50000 {
-		n = int(t.used * 4)
-	} else if t.used <= maxDictSize/2 {
-		n = int(t.used * 2)
+	var n uint32
+	if t.used < t.capa/2 {
+		n = t.used * 2
+	} else if t.capa <= maxDictSize/2 {
+		n = t.capa * 2
 	} else {
 		return nil, false
 	}
 	newTable := newDictTable(n)
-	for _, oldEntry := range t.entries {
-		if oldEntry != nil && oldEntry != deletedEntry {
+	for i := uint32(0); i < t.capa; i++ {
+		oldEntry := &t.entries[i]
+		if oldEntry.value != nil {
 			newTable.insertAbsentEntry(oldEntry)
 		}
 	}
-	newTable.insertAbsentEntry(entry)
 	return newTable, true
 }
 
 // dictEntryIterator is used to iterate over the entries in a dictTable in an
 // arbitrary order.
 type dictEntryIterator struct {
-	index int64
+	index uint32
 	table *dictTable
 }
 
@@ -220,27 +316,21 @@ func newDictEntryIterator(d *Dict) dictEntryIterator {
 	return dictEntryIterator{table: d.loadTable()}
 }
 
-// next advances this iterator to the next occupied entry and returns it. The
-// second return value is true if the dict changed since iteration began, false
-// otherwise.
-func (iter *dictEntryIterator) next() *dictEntry {
-	numEntries := len(iter.table.entries)
-	var entry *dictEntry
-	for entry == nil {
-		// 64bit atomic ops need to be 8 byte aligned. This compile time check
-		// verifies alignment by creating a negative constant for an unsigned type.
-		// See sync/atomic docs for details.
-		const blank = -(unsafe.Offsetof(iter.index) % 8)
-		index := int(atomic.AddInt64(&iter.index, 1)) - 1
-		if index >= numEntries {
-			break
+// next advances this iterator to the next occupied entry and returns it.
+// it returns nil, nil when there is no more elements.
+func (iter *dictEntryIterator) next() (*Object, *Object) {
+	filled := iter.table.loadFill()
+	for {
+		index := atomic.AddUint32(&iter.index, 1) - 1
+		if index >= filled {
+			atomic.AddUint32(&iter.index, ^uint32(0))
+			return nil, nil
 		}
-		entry = iter.table.loadEntry(index)
-		if entry == deletedEntry {
-			entry = nil
+		entry := &iter.table.entries[index]
+		if value := entry.loadValue(); value != nil {
+			return entry.key, value
 		}
 	}
-	return entry
 }
 
 // dictVersionGuard is used to detect when a dict has been modified.
@@ -274,15 +364,14 @@ type Dict struct {
 
 // NewDict returns an empty Dict.
 func NewDict() *Dict {
-	return &Dict{Object: Object{typ: DictType}, table: newDictTable(0)}
+	return &Dict{Object: Object{typ: DictType}}
 }
 
 func newStringDict(items map[string]*Object) *Dict {
-	if len(items) > maxDictSize/2 {
+	if len(items) > maxDictSize {
 		panic(fmt.Sprintf("dictionary too big: %d", len(items)))
 	}
-	n := len(items) * 2
-	table := newDictTable(n)
+	table := newDictTable(uint32(len(items)))
 	for key, value := range items {
 		table.insertAbsentEntry(&dictEntry{hashString(key), NewStr(key).ToObject(), value})
 	}
@@ -350,8 +439,8 @@ func (d *Dict) GetItem(f *Frame, key *Object) (*Object, *BaseException) {
 	if raised != nil {
 		return nil, raised
 	}
-	if entry != nil && entry != deletedEntry {
-		return entry.value, nil
+	if entry != nil {
+		return entry.loadValue(), nil
 	}
 	return nil, nil
 }
@@ -370,17 +459,21 @@ func (d *Dict) Pop(f *Frame, key *Object) (*Object, *BaseException) {
 
 // Keys returns a list containing all the keys in d.
 func (d *Dict) Keys(f *Frame) *List {
-	d.mutex.Lock(f)
-	keys := make([]*Object, d.Len())
+	table := d.loadTable()
+	fill := int(table.loadFill())
+	used := table.loadUsed()
+	// since `used` is loaded after `fill`, then number of alive values
+	// in t.entries[:fill] could not be larger than `used`
+	keys := make([]*Object, used)
 	i := 0
-	for _, entry := range d.table.entries {
-		if entry != nil && entry != deletedEntry {
+	for k := 0; k < fill; k++ {
+		entry := &table.entries[k]
+		if value := entry.loadValue(); value != nil {
 			keys[i] = entry.key
 			i++
 		}
 	}
-	d.mutex.Unlock(f)
-	return NewList(keys...)
+	return NewList(keys[:i]...)
 }
 
 // Len returns the number of entries in d.
@@ -395,37 +488,62 @@ func (d *Dict) putItem(f *Frame, key, value *Object, overwrite bool) (*Object, *
 	if raised != nil {
 		return nil, raised
 	}
+	hashv := hash.Value()
 	d.mutex.Lock(f)
+	// we do not use `defer d.mutex.Unlock(f)` here because defer is not free: it slows putItem by 30% .
+	// Since putItem is a hot place, lets Unlock manually.
 	t := d.table
 	v := d.version
-	index, entry, raised := t.lookupEntry(f, hash.Value(), key)
+	index, entry, raised := t.lookupEntry(f, hashv, key)
+	if raised != nil {
+		d.mutex.Unlock(f)
+		return nil, raised
+	}
+	if v != d.version {
+		// Dictionary was recursively modified. Blow up instead
+		// of trying to recover.
+		d.mutex.Unlock(f)
+		return nil, f.RaiseType(RuntimeErrorType, "dictionary changed during write")
+	}
 	var originValue *Object
-	if raised == nil {
-		if v != d.version {
-			// Dictionary was recursively modified. Blow up instead
-			// of trying to recover.
-			raised = f.RaiseType(RuntimeErrorType, "dictionary changed during write")
-		} else {
-			if value == nil {
-				// Going to delete the entry.
-				if entry != nil && entry != deletedEntry {
-					d.table.storeEntry(index, deletedEntry)
-					d.table.incUsed(-1)
-					d.incVersion()
-				}
-			} else if overwrite || entry == nil {
-				newEntry := &dictEntry{hash.Value(), key, value}
-				if newTable, ok := t.writeEntry(f, index, newEntry); ok {
-					if newTable != nil {
-						d.storeTable(newTable)
-					}
-					d.incVersion()
+	if entry == nil || entry.value == nil {
+		// either key were never inserted, or it was deleted
+		if value != nil {
+			if t == nil || t.fill == d.table.capa {
+				if newTable, ok := d.table.growTable(); ok {
+					newTable.insertAbsentEntry(&dictEntry{
+						hash:  hashv,
+						key:   key,
+						value: value,
+					})
+					// synchronization point
+					d.storeTable(newTable)
 				} else {
-					raised = f.RaiseType(OverflowErrorType, errResultTooLarge)
+					d.mutex.Unlock(f)
+					return nil, f.RaiseType(OverflowErrorType, errResultTooLarge)
 				}
+			} else {
+				t.writeNewEntry(index, &dictEntry{
+					hash:  hashv,
+					key:   key,
+					value: value,
+				})
 			}
-			if entry != nil && entry != deletedEntry {
-				originValue = entry.value
+			d.incVersion()
+		}
+	} else {
+		originValue = entry.value
+		if overwrite {
+			t.writeValue(entry, value)
+			d.incVersion()
+			if value == nil && t.used < t.capa/8 && t.fill > t.capa/8*5 {
+				if newTable, ok := t.growTable(); ok {
+					d.storeTable(newTable)
+					// doesn't increment version here, because we didn't change content in growTable.
+				} else {
+					d.mutex.Unlock(f)
+					panic("some unknown error on downsizing dictionary")
+				}
 			}
 		}
 	}
@@ -490,20 +608,20 @@ func dictsAreEqual(f *Frame, d1, d2 *Dict) (bool, *BaseException) {
 	len1 := d1.Len()
 	d1.mutex.Unlock(f)
 	d2.mutex.Lock(f)
-	g2 := newDictVersionGuard(d1)
+	g2 := newDictVersionGuard(d2)
 	len2 := d2.Len()
 	d2.mutex.Unlock(f)
 	if len1 != len2 {
 		return false, nil
 	}
 	result := true
-	for entry := iter.next(); entry != nil && result; entry = iter.next() {
-		if v, raised := d2.GetItem(f, entry.key); raised != nil {
+	for key, value := iter.next(); key != nil && result; key, value = iter.next() {
+		if v, raised := d2.GetItem(f, key); raised != nil {
 			return false, raised
 		} else if v == nil {
 			result = false
 		} else {
-			eq, raised := Eq(f, entry.value, v)
+			eq, raised := Eq(f, value, v)
 			if raised != nil {
 				return false, raised
 			}
@@ -702,7 +820,7 @@ func dictNE(f *Frame, v, w *Object) (*Object, *BaseException) {
 
 func dictNew(f *Frame, t *Type, _ Args, _ KWArgs) (*Object, *BaseException) {
 	d := toDictUnsafe(newObject(t))
-	d.table = &dictTable{entries: make([]*dictEntry, minDictSize, minDictSize)}
+	d.table = newDictTable(0)
 	return d.ToObject(), nil
 }
 
@@ -734,18 +852,22 @@ func dictPopItem(f *Frame, args Args, _ KWArgs) (item *Object, raised *BaseExcep
 	}
 	d := toDictUnsafe(args[0])
 	d.mutex.Lock(f)
-	iter := newDictEntryIterator(d)
-	entry := iter.next()
-	if entry == nil {
-		raised = f.RaiseType(KeyErrorType, "popitem(): dictionary is empty")
-	} else {
-		item = NewTuple(entry.key, entry.value).ToObject()
-		d.table.storeEntry(int(iter.index-1), deletedEntry)
-		d.table.incUsed(-1)
-		d.incVersion()
+	defer d.mutex.Unlock(f)
+	if d.table.used == 0 {
+		return nil, f.RaiseType(KeyErrorType, "popitem(): dictionary is empty")
 	}
-	d.mutex.Unlock(f)
-	return item, raised
+	// unfortunately, 3.7 standardized popping last key-value
+	for i := int(d.table.fill) - 1; i >= 0; i-- {
+		entry := &d.table.entries[i]
+		if entry.value != nil {
+			item = NewTuple(entry.key, entry.value).ToObject()
+			entry.storeValue(nil)
+			d.table.incUsed(-1)
+			d.incVersion()
+			return item, nil
+		}
+	}
+	panic("there shall be at least one item")
 }
 
 func dictRepr(f *Frame, o *Object) (*Object, *BaseException) {
@@ -762,17 +884,17 @@ func dictRepr(f *Frame, o *Object) (*Object, *BaseException) {
 	buf.WriteString("{")
 	iter := newDictEntryIterator(d)
 	i := 0
-	for entry := iter.next(); entry != nil; entry = iter.next() {
+	for key, value := iter.next(); key != nil; key, value = iter.next() {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		s, raised := Repr(f, entry.key)
+		s, raised := Repr(f, key)
 		if raised != nil {
 			return nil, raised
 		}
 		buf.WriteString(s.Value())
 		buf.WriteString(": ")
-		if s, raised = Repr(f, entry.value); raised != nil {
+		if s, raised = Repr(f, value); raised != nil {
 			return nil, raised
 		}
 		buf.WriteString(s.Value())
@@ -909,11 +1031,11 @@ func dictItemIteratorIter(f *Frame, o *Object) (*Object, *BaseException) {
 
 func dictItemIteratorNext(f *Frame, o *Object) (ret *Object, raised *BaseException) {
 	iter := toDictItemIteratorUnsafe(o)
-	entry, raised := dictIteratorNext(f, &iter.iter, &iter.guard)
+	key, value, raised := dictIteratorNext(f, &iter.iter, &iter.guard)
 	if raised != nil {
 		return nil, raised
 	}
-	return NewTuple2(entry.key, entry.value).ToObject(), nil
+	return NewTuple2(key, value).ToObject(), nil
 }
 
 func initDictItemIteratorType(map[string]*Object) {
@@ -952,11 +1074,11 @@ func dictKeyIteratorIter(f *Frame, o *Object) (*Object, *BaseException) {
 
 func dictKeyIteratorNext(f *Frame, o *Object) (*Object, *BaseException) {
 	iter := toDictKeyIteratorUnsafe(o)
-	entry, raised := dictIteratorNext(f, &iter.iter, &iter.guard)
+	key, _, raised := dictIteratorNext(f, &iter.iter, &iter.guard)
 	if raised != nil {
 		return nil, raised
 	}
-	return entry.key, nil
+	return key, nil
 }
 
 func initDictKeyIteratorType(map[string]*Object) {
@@ -995,11 +1117,11 @@ func dictValueIteratorIter(f *Frame, o *Object) (*Object, *BaseException) {
 
 func dictValueIteratorNext(f *Frame, o *Object) (*Object, *BaseException) {
 	iter := toDictValueIteratorUnsafe(o)
-	entry, raised := dictIteratorNext(f, &iter.iter, &iter.guard)
+	_, value, raised := dictIteratorNext(f, &iter.iter, &iter.guard)
 	if raised != nil {
 		return nil, raised
 	}
-	return entry.value, nil
+	return value, nil
 }
 
 func initDictValueIteratorType(map[string]*Object) {
@@ -1016,22 +1138,22 @@ func raiseKeyError(f *Frame, key *Object) *BaseException {
 	return raised
 }
 
-func dictNextIndex(i, perturb uint) (uint, uint) {
-	return (i << 2) + i + perturb + 1, perturb >> 5
+func dictNextIndex(i uint32, perturb uint) (uint32, uint) {
+	return (i << 2) + i + uint32(perturb) + 1, perturb >> 5
 }
 
-func dictIteratorNext(f *Frame, iter *dictEntryIterator, guard *dictVersionGuard) (*dictEntry, *BaseException) {
+func dictIteratorNext(f *Frame, iter *dictEntryIterator, guard *dictVersionGuard) (*Object, *Object, *BaseException) {
 	// NOTE: The behavior here diverges from CPython where an iterator that
 	// is exhausted will always return StopIteration regardless whether the
 	// underlying dict is subsequently modified. In Grumpy, an iterator for
 	// a dict that has been modified will always raise RuntimeError even if
 	// the iterator was exhausted before the modification.
-	entry := iter.next()
+	key, value := iter.next()
 	if !guard.check() {
-		return nil, f.RaiseType(RuntimeErrorType, "dictionary changed during iteration")
+		return nil, nil, f.RaiseType(RuntimeErrorType, "dictionary changed during iteration")
 	}
-	if entry == nil {
-		return nil, f.Raise(StopIterationType.ToObject(), nil, nil)
+	if key == nil {
+		return nil, nil, f.Raise(StopIterationType.ToObject(), nil, nil)
 	}
-	return entry, nil
+	return key, value, nil
 }
