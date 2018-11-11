@@ -15,6 +15,7 @@
 # pylint: disable=g-equals-none
 
 # abs(x)
+import sys
 
 assert abs(1) == 1
 assert abs(-1) == 1
@@ -323,7 +324,10 @@ assert list(zip('abcdef')) == zip('abcdef')
 assert list(zip()) == zip()
 assert [tuple(list(pair)) for pair in zip('abc', 'def')] == zip('abc', 'def')
 assert [pair for pair in zip('abc', 'def')] == zip('abc', 'def')
-assert zip({'b': 1, 'a': 2}) == [('a',), ('b',)]
+if hasattr(sys, "goversion"):
+  assert zip({'b': 1, 'a': 2}) == [('b',), ('a',)]
+else:
+  assert zip({'b': 1, 'a': 2}) == [('a',), ('b',)]
 assert zip(range(5)) == [(0,), (1,), (2,), (3,), (4,)]
 assert zip(xrange(5)) == [(0,), (1,), (2,), (3,), (4,)]
 assert zip([1, 2, 3], [1], [4, 5, 6]) == [(1, 1, 4)]
