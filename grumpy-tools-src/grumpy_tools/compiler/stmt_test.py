@@ -531,6 +531,19 @@ class StatementVisitorTest(unittest.TestCase):
           print 3
         """)))
 
+  def testWithAsMultiple(self):
+    self.assertEqual((0, '1 2 3\n1 2 3\n'),
+                     _GrumpRun(textwrap.dedent("""\
+        class ContextManager(object):
+          def __enter__(self):
+            return (1, (2, 3))
+          def __exit__(self, *args):
+            pass
+        with ContextManager() as [x, (y, z)], ContextManager() as [x2, (y2, z2)]:
+          print x, y, z
+          print x2, y2, z2
+        """)))
+
   def testWithAs(self):
     self.assertEqual((0, '1 2 3\n'),
                      _GrumpRun(textwrap.dedent("""\
