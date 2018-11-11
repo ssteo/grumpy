@@ -59,6 +59,20 @@ class Import(object):
     self.is_native = is_native
     self.bindings = []
 
+  def __repr__(self):
+    if self.bindings:
+      bind_type = self.bindings[0].bind_type
+      if bind_type == Import.MODULE:
+        bind_type = 'MODULE'
+      elif bind_type == Import.MEMBER:
+        bind_type = 'MEMBER'
+      elif bind_type == Import.STAR:
+        bind_type = 'STAR'
+    else:
+      bind_type = 'NONE'
+    repr_ = '<Import %s:%s>' % (self.name, bind_type.lower())
+    return repr_
+
   def add_binding(self, bind_type, alias, value):
     self.bindings.append(Import.Binding(bind_type, alias, value))
 
@@ -116,7 +130,7 @@ class Importer(algorithm.Visitor):
         raise util.ImportError(node, 'invalid syntax on wildcard import')
 
       # Imported name is * (star). Will bind __all__ the module contents.
-      imp = self._resolve_import(node, node.module)
+      imp = self._resolve_import(node, node.module, allow_error=True)
       imp.add_binding(Import.STAR, '*', imp.name.count('.'))
       return [imp]
 
@@ -147,7 +161,7 @@ class Importer(algorithm.Visitor):
       except (util.ImportError, AttributeError):
         # A member (not a submodule) is being imported, so bind it.
         if not member_imp:
-          member_imp = resolver(node, node.module)
+          member_imp = resolver(node, node.module, allow_error=True)
           imports.append(member_imp)
         member_imp.add_binding(Import.MEMBER, asname, alias.name)
       else:
@@ -169,7 +183,7 @@ class Importer(algorithm.Visitor):
       return Import(modname, '')
     raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
 
-  def _resolve_relative_import(self, level, node, modname):
+  def _resolve_relative_import(self, level, node, modname, allow_error=False):
     if not self.package_dir:
       raise util.ImportError(node, 'attempted relative import in non-package')
     uplevel = level - 1
@@ -179,7 +193,7 @@ class Importer(algorithm.Visitor):
     dirname = os.path.normpath(os.path.join(
         self.package_dir, *(['..'] * uplevel)))
     script = find_script(dirname, modname or '__init__')
-    if not script:
+    if not script and not allow_error:
       raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
     parts = self.package_name.split('.')
     return Import('.'.join(parts[:len(parts)-uplevel] + ([modname] if modname else [])), script)
