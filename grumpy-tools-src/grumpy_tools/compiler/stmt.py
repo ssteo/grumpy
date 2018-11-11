@@ -421,6 +421,7 @@ class StatementVisitor(algorithm.Visitor):
     self._write_py_context(node.loc.line())
 
     # mgr := EXPR
+    ## TODO: Get a way to __enter__ everything using `with` statement instead
     mgr_list = [self.visit_expr(item.context_expr).__enter__() for item in node.items]
     exit_funcs = [self.block.alloc_temp().__enter__() for mgr in mgr_list]
     values = [self.block.alloc_temp().__enter__() for mgr in mgr_list]
@@ -500,6 +501,7 @@ class StatementVisitor(algorithm.Visitor):
           \tcontinue
           }"""), exc=exc.expr, swallow_exc=swallow_exc_bool.expr)
 
+      ## TODO: Call __exit__() properly on each manually __enter__()ed object
       # for i in mgr_list + exit_funcs + values:
       #   i.__exit__()
 
