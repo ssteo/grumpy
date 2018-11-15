@@ -189,6 +189,11 @@ class StatementVisitor(algorithm.Visitor):
         msg = 'del target not implemented: {}'.format(type(target).__name__)
         raise util.ParseError(node, msg)
 
+  def visit_Exec(self, node):
+    self._write_py_context(node.lineno)
+    self.writer.write('πE = πF.RaiseType(πg.NotImplementedErrorType, "exec is not available on Grumpy. Maybe never be.")')
+    self.writer.write('continue')
+
   def visit_Expr(self, node):
     self._write_py_context(node.lineno)
     self.visit_expr(node.value).free()
