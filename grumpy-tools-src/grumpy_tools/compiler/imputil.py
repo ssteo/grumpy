@@ -21,9 +21,12 @@ from __future__ import unicode_literals
 
 import collections
 import functools
+import logging
 import os
 import os.path
 import sys
+import sysconfig
+from pkg_resources import resource_filename, Requirement, DistributionNotFound
 
 from grumpy_tools.compiler import util
 from grumpy_tools.vendor import pythonparser
@@ -35,6 +38,25 @@ try:
 except NameError:
   xrange = range  # Python 3
 
+logger = logging.getLogger(__name__)
+
+
+def _get_grumpy_stdlib():
+    try:
+        runtime_gopath = resource_filename(
+            Requirement.parse('grumpy-runtime'),
+            'grumpy_runtime/data/gopath',
+        )
+    except DistributionNotFound:
+        return None
+    return os.path.join(os.path.sep, runtime_gopath, 'src/__python__')
+
+_GRUMPY_STDLIB_PATH = _get_grumpy_stdlib()
+
+_CPYTHON_STDLIB_PATHS = (
+  [sysconfig.get_path('platstdlib') + sysconfig.get_path('stdlib')]
+  + sysconfig.get_config_vars('LIBDEST', 'DESTLIB', 'BINLIBDEST')
+)
 
 _NATIVE_MODULE_PREFIX = '__go__/'
 
@@ -260,7 +282,14 @@ def calculate_transitive_deps(modname, script, gopath):
   return deps
 
 
-def find_script(dirname, name, main=False):
+def find_script(dirname, name, main=False, use_grumpy_stdlib=True):
+  if use_grumpy_stdlib and dirname in _CPYTHON_STDLIB_PATHS:
+    # Grumpy stdlib have preference over CPython stdlib
+    result = find_script(_GRUMPY_STDLIB_PATH, name, main=main, use_grumpy_stdlib=False)
+    if result:
+      logger.debug("Package '%s' is from Grumpy stdlib", name)
+      return result
+
   prefix = os.path.join(dirname, name.replace('.', os.sep))
   script = prefix + '.py'
   if os.path.isfile(script):
