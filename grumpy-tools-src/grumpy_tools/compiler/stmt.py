@@ -423,13 +423,14 @@ class StatementVisitor(algorithm.Visitor):
     self._visit_loop(testfunc, node)
 
   def visit_With(self, node):
-    assert len(node.items) == 1, 'multiple items in a with not yet supported'
-    item = node.items[0]
     self._write_py_context(node.loc.line())
+
     # mgr := EXPR
-    with self.visit_expr(item.context_expr) as mgr,\
-        self.block.alloc_temp() as exit_func,\
-        self.block.alloc_temp() as value:
+    ## TODO: Get a way to __enter__ everything using `with` statement instead
+    mgr_list = [self.visit_expr(item.context_expr).__enter__() for item in node.items]
+    exit_funcs = [self.block.alloc_temp().__enter__() for mgr in mgr_list]
+    values = [self.block.alloc_temp().__enter__() for mgr in mgr_list]
+
       # The code here has a subtle twist: It gets the exit function attribute
       # from the class, not from the object. This matches the pseudo code from
       # PEP 343 exactly, and is very close to what CPython actually does.  (The
@@ -437,10 +438,13 @@ class StatementVisitor(algorithm.Visitor):
       # on the object, but skips the instance dictionary: see ceval.c and
       # lookup_maybe in typeobject.c.)
 
+    for exit_func in exit_funcs:
       # exit := type(mgr).__exit__
       self.writer.write_checked_call2(
           exit_func, 'πg.GetAttr(πF, {}.Type().ToObject(), {}, nil)',
           mgr.expr, self.block.root.intern('__exit__'))
+
+    for value in values:
       # value := type(mgr).__enter__(mgr)
       self.writer.write_checked_call2(
           value, 'πg.GetAttr(πF, {}.Type().ToObject(), {}, nil)',
@@ -449,54 +453,62 @@ class StatementVisitor(algorithm.Visitor):
           value, '{}.Call(πF, πg.Args{{{}}}, nil)',
           value.expr, mgr.expr)
 
-      finally_label = self.block.genlabel(is_checkpoint=True)
-      self.writer.write('πF.PushCheckpoint({})'.format(finally_label))
+    finally_label = self.block.genlabel(is_checkpoint=True)
+    self.writer.write('πF.PushCheckpoint({})'.format(finally_label))
+
+    for item, value in zip(node.items, values):
       if item.optional_vars:
         self._tie_target(item.optional_vars, value.expr)
-      self._visit_each(node.body)
-      self.writer.write('πF.PopCheckpoint()')
-      self.writer.write_label(finally_label)
 
-      with self.block.alloc_temp() as swallow_exc,\
-          self.block.alloc_temp('bool') as swallow_exc_bool,\
-          self.block.alloc_temp('*πg.BaseException') as exc,\
-          self.block.alloc_temp('*πg.Traceback') as tb,\
-          self.block.alloc_temp('*πg.Type') as t:
-        # temp := exit(mgr, *sys.exec_info())
-        tmpl = """\
-            $exc, $tb = nil, nil
-            if πE != nil {
-            \t$exc, $tb = πF.ExcInfo()
-            }
-            if $exc != nil {
-            \t$t = $exc.Type()
-            \tif $swallow_exc, πE = $exit_func.Call(πF, πg.Args{$mgr, $t.ToObject(), $exc.ToObject(), $tb.ToObject()}, nil); πE != nil {
-            \t\tcontinue
-            \t}
-            } else {
-            \tif $swallow_exc, πE = $exit_func.Call(πF, πg.Args{$mgr, πg.None, πg.None, πg.None}, nil); πE != nil {
-            \t\tcontinue
-            \t}
-            }
-        """
+    self._visit_each(node.body)
+    self.writer.write('πF.PopCheckpoint()')
+    self.writer.write_label(finally_label)
+
+    with self.block.alloc_temp() as swallow_exc,\
+        self.block.alloc_temp('bool') as swallow_exc_bool,\
+        self.block.alloc_temp('*πg.BaseException') as exc,\
+        self.block.alloc_temp('*πg.Traceback') as tb,\
+        self.block.alloc_temp('*πg.Type') as t:
+      # temp := exit(mgr, *sys.exec_info())
+      tmpl = """\
+          $exc, $tb = nil, nil
+          if πE != nil {
+          \t$exc, $tb = πF.ExcInfo()
+          }
+          if $exc != nil {
+          \t$t = $exc.Type()
+          \tif $swallow_exc, πE = $exit_func.Call(πF, πg.Args{$mgr, $t.ToObject(), $exc.ToObject(), $tb.ToObject()}, nil); πE != nil {
+          \t\tcontinue
+          \t}
+          } else {
+          \tif $swallow_exc, πE = $exit_func.Call(πF, πg.Args{$mgr, πg.None, πg.None, πg.None}, nil); πE != nil {
+          \t\tcontinue
+          \t}
+          }
+      """
+      for exit_func in exit_funcs:
         self.writer.write_tmpl(
             textwrap.dedent(tmpl), exc=exc.expr, tb=tb.expr, t=t.name,
             mgr=mgr.expr, exit_func=exit_func.expr,
             swallow_exc=swallow_exc.name)
 
-        # if Exc != nil && swallow_exc != true {
-        #   Raise(nil, nil)
-        # }
-        self.writer.write_checked_call2(
-            swallow_exc_bool, 'πg.IsTrue(πF, {})', swallow_exc.expr)
-        self.writer.write_tmpl(textwrap.dedent("""\
-            if $exc != nil && $swallow_exc != true {
-            \tπE = πF.Raise(nil, nil, nil)
-            \tcontinue
-            }
-            if πR != nil {
-            \tcontinue
-            }"""), exc=exc.expr, swallow_exc=swallow_exc_bool.expr)
+      # if Exc != nil && swallow_exc != true {
+      #   Raise(nil, nil)
+      # }
+      self.writer.write_checked_call2(
+          swallow_exc_bool, 'πg.IsTrue(πF, {})', swallow_exc.expr)
+      self.writer.write_tmpl(textwrap.dedent("""\
+          if $exc != nil && $swallow_exc != true {
+          \tπE = πF.Raise(nil, nil, nil)
+          \tcontinue
+          }
+          if πR != nil {
+          \tcontinue
+          }"""), exc=exc.expr, swallow_exc=swallow_exc_bool.expr)
+
+      ## TODO: Call __exit__() properly on each manually __enter__()ed object
+      # for i in mgr_list + exit_funcs + values:
+      #   i.__exit__()
 
   def visit_function_inline(self, node):
     """Returns an GeneratedExpr for a function with the given body."""
