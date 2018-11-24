@@ -29,7 +29,7 @@ _GO_RESERVED_KEYWORDS = {
   'chan',         'else',         'goto',         'package',      'switch',
   'const',        'fallthrough',  'if',           'range',        'type',
   'continue',     'for',          'import',       'return',       'var',
-}
+}.union(['main'])  # Found to be troublesome as module names
 
 _temporary_directories = []  # Will be cleaned up on main Python exit.
 
