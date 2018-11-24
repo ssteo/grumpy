@@ -34,7 +34,7 @@ from .compiler import imputil
 from .compiler import stmt
 from .compiler import util
 from .vendor import pythonparser
-from .pep_support.pep3147pycache import make_transpiled_module_folders, should_refresh, set_checksum
+from .pep_support.pep3147pycache import make_transpiled_module_folders, should_refresh, set_checksum, fixed_keyword
 from . import pydeps
 
 logger = logging.getLogger(__name__)
@@ -134,7 +134,7 @@ def _transpile(script, modname, imports, visitor, mod_block):
       \tCode = πg.NewCode("<module>", $script, nil, 0, func(πF *πg.Frame, _ []*πg.Object) (*πg.Object, *πg.BaseException) {
       \t\tvar πR *πg.Object; _ = πR
       \t\tvar πE *πg.BaseException; _ = πE""")
-  writer.write_tmpl(tmpl, package=modname.split('.')[-1],
+  writer.write_tmpl(tmpl, package=fixed_keyword(modname.split('.')[-1]),
                     script=util.go_str(script), imports=imports)
   with writer.indent_block(2):
     for s in sorted(mod_block.strings):
@@ -195,7 +195,7 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
 def _package_name(modname):
   if modname.startswith('__go__/'):
     return '__python__/' + modname
-  return '__python__/' + modname.replace('.', '/')
+  return '__python__/' + fixed_keyword(modname).replace('.', '/')
 
 
 def _get_parent_packages(modname):

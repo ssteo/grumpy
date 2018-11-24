@@ -22,6 +22,15 @@ TRANSPILED_MODULES_FOLDER = 'src/__python__/'
 GRUMPY_MAGIC_TAG = 'grumpy-' + grumpy_tools.__version__.replace('.', '')  # alike cpython-27
 ORIGINAL_MAGIC_TAG = sys.implementation.cache_tag  # On Py27, only because importlib2
 
+# See: https://golang.org/ref/spec#Keywords
+_GO_RESERVED_KEYWORDS = {
+  'break',        'default',      'func',         'interface',    'select',
+  'case',         'defer',        'go',           'map',          'struct',
+  'chan',         'else',         'goto',         'package',      'switch',
+  'const',        'fallthrough',  'if',           'range',        'type',
+  'continue',     'for',          'import',       'return',       'var',
+}
+
 _temporary_directories = []  # Will be cleaned up on main Python exit.
 
 
@@ -172,7 +181,7 @@ def make_transpiled_module_folders(script_path, module_name):
         'cache_folder': get_pycache_folder(script_path, module_name),
         'gopath_folder': get_gopath_folder(script_path, module_name),
         'transpiled_base_folder': get_transpiled_base_folder(script_path, module_name),
-        'transpiled_module_folder': get_transpiled_module_folder(script_path, module_name),
+        'transpiled_module_folder': get_transpiled_module_folder(script_path, fixed_keyword(module_name)),
     }
     for role, folder in needed_folders.items():
         if os.path.isfile(folder):  # 1. Need a folder. Remove the file
@@ -205,3 +214,13 @@ def _maybe_link_paths(orig, dest):
             logger.debug('Linked %s to %s', orig, dest)
             return True
     return False
+
+
+def fixed_keyword(keyword):
+  """
+  Go have some reserved words that could be Python module names. This modules
+  needs to be renamed at least on "naked" Go code, e.g. `package` definition
+  """
+  if keyword in _GO_RESERVED_KEYWORDS:
+    return keyword + '_goreservedkeyword'
+  return keyword
