@@ -47,7 +47,7 @@ def transpile(script=None, modname=None, pep3147=False):
     """
     _ensure_gopath(raises=False)
 
-    output = grumpc.main(stream=script, modname=modname, pep3147=pep3147)
+    output = grumpc.main(stream=script, modname=modname, pep3147=pep3147)['gocode']
     click.echo(output)
     sys.exit(0)
 
