@@ -216,11 +216,17 @@ def _maybe_link_paths(orig, dest):
     return False
 
 
-def fixed_keyword(keyword):
-  """
-  Go have some reserved words that could be Python module names. This modules
-  needs to be renamed at least on "naked" Go code, e.g. `package` definition
-  """
-  if keyword in _GO_RESERVED_KEYWORDS:
-    return keyword + '_goreservedkeyword'
-  return keyword
+def fixed_keyword(keyword, split='.'):
+    """
+    Go have some reserved words that could be Python module names. This modules
+    needs to be renamed at least on "naked" Go code, e.g. `package` definition
+    """
+    if split:
+        keys = keyword.split(split)
+    else:
+        keys = [keyword]
+
+    for i, kw in enumerate(keys):
+        if kw in _GO_RESERVED_KEYWORDS:
+            keys[i] += '_goreservedkeyword'
+    return split.join(keys)
