@@ -117,8 +117,8 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
     # Make sure traceback is available in all Python binaries.
     names = set(['traceback'])
     go_main = os.path.join(workdir, 'main.go')
-    package = _package_name(modname)
-    imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in names)
+    package = grumpc._package_name(modname)
+    imports = ''.join('\t_ "' + grumpc._package_name(name) + '"\n' for name in names)
     with open(go_main, 'w') as f:
       f.write(module_tmpl.substitute(package=package, imports=imports))
     logger.info('`go run` GOPATH=%s', os.environ['GOPATH'])
@@ -130,9 +130,3 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
         shutil.rmtree(pep3147_folders['cache_folder'], ignore_errors=True)
       else:
         logger.warning('not cleaning the temporary pycache folder: %s', pep3147_folders['cache_folder'])
-
-
-def _package_name(modname):
-  if modname.startswith('__go__/'):
-    return '__python__/' + modname
-  return '__python__/' + modname.replace('.', '/')
