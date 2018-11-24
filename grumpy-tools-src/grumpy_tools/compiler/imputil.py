@@ -283,7 +283,7 @@ def calculate_transitive_deps(modname, script, gopath):
 
 
 def find_script(dirname, name, main=False, use_grumpy_stdlib=True):
-  if use_grumpy_stdlib and dirname in _CPYTHON_STDLIB_PATHS:
+  if use_grumpy_stdlib and _GRUMPY_STDLIB_PATH and dirname in _CPYTHON_STDLIB_PATHS:
     # Grumpy stdlib have preference over CPython stdlib
     result = find_script(_GRUMPY_STDLIB_PATH, name, main=main, use_grumpy_stdlib=False)
     if result:
