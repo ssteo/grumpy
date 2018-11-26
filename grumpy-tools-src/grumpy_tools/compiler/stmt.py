@@ -62,10 +62,24 @@ class StatementVisitor(algorithm.Visitor):
   def visit_expr(self, node):
     # Collect the 1st module string as docstring (<module>.__doc__)
     if self.docstring is None and isinstance(node, ast.Str):
-      self.docstring = node
-      doc_assign = ast.Assign(loc=node.loc, targets=[ast.Name(id='__doc__')], value=node)
-      self.visit_Assign(doc_assign)
+      self._assign_docstring(node)
     return self.expr_visitor.visit(node)
+
+  def _assign_docstring(self, node):
+    self.docstring = node
+    if isinstance(self.block, block.FunctionBlock):
+      ## function name <- self.block.name
+      ## class or module of such function <- self.block.parent
+      ## Best guess:
+      # doc_assign = ast.Assign(
+      #   loc=node.loc,
+      #   targets=[ast.Attribute(value=ast.Name(id=self.block.name), attr='__doc__')],
+      #   value=node,
+      # )
+      return # TODO: Handle function docstrings
+
+    doc_assign = ast.Assign(loc=node.loc, targets=[ast.Name(id='__doc__')], value=node)
+    self.visit_Assign(doc_assign)
 
   def visit_Assert(self, node):
     self._write_py_context(node.lineno)

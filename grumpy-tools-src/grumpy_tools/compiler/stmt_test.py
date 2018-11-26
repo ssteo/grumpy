@@ -31,6 +31,7 @@ from grumpy_tools.compiler import util
 from grumpy_tools.vendor import pythonparser
 from grumpy_tools.vendor.pythonparser import ast
 
+import pytest
 
 class StatementVisitorTest(unittest.TestCase):
 
@@ -409,6 +410,36 @@ class StatementVisitorTest(unittest.TestCase):
         from __future__ import unicode_literals
         "module docstring"
         print "__doc__ (" + type(__doc__).__name__ + ") is the " + __doc__"""
+    )))
+
+  def testClassDocstring(self):
+    want = "Foo.__doc__ (unicode) is the class docstring\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+
+        class Foo(object):
+          "class docstring"
+          pass
+
+        print "Foo.__doc__ (" + type(Foo.__doc__).__name__ + ") is the " + Foo.__doc__"""
+    )))
+
+  @pytest.mark.xfail
+  def testFunctionDocstring(self):
+    want = "Foo.func.__doc__ (unicode) is the function docstring\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+
+        class Foo(object):
+          "class docstring"
+
+          def func(self):
+            "function docstring"
+            return
+
+        print "Foo.func.__doc__ (" + type(Foo.__doc__).__name__ + ") is the " + Foo.func.__doc__"""
     )))
 
   def testRaiseExitStatus(self):
