@@ -53,12 +53,18 @@ class StatementVisitor(algorithm.Visitor):
     self.future_node = future_node
     self.writer = util.Writer()
     self.expr_visitor = expr_visitor.ExprVisitor(self)
+    self.docstring = None
 
   def generic_visit(self, node):
     msg = 'node not yet implemented: {}'.format(type(node).__name__)
     raise util.ParseError(node, msg)
 
   def visit_expr(self, node):
+    # Collect the 1st module string as docstring (<module>.__doc__)
+    if self.docstring is None and isinstance(node, ast.Str):
+      self.docstring = node
+      doc_assign = ast.Assign(loc=node.loc, targets=[ast.Name(id='__doc__')], value=node)
+      self.visit_Assign(doc_assign)
     return self.expr_visitor.visit(node)
 
   def visit_Assert(self, node):

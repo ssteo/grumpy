@@ -403,6 +403,14 @@ class StatementVisitorTest(unittest.TestCase):
         print('abc', 123, sep='x')
         print('abc', 123, end=' ')""")))
 
+  def testModuleDocstring(self):
+    want = "__doc__ (unicode) is the module docstring\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+        print "__doc__ (" + type(__doc__).__name__ + ") is the " + __doc__"""
+    )))
+
   def testRaiseExitStatus(self):
     self.assertEqual(1, _GrumpRun('raise Exception')[0])
 
