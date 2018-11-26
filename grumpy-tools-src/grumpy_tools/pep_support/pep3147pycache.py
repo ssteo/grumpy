@@ -139,6 +139,7 @@ def get_transpiled_base_folder(script_path, module_name):
 
 
 def get_transpiled_module_folder(script_path, module_name):
+    module_name = fixed_keyword(module_name)
     transpiled_base_folder = get_transpiled_base_folder(script_path, module_name)
     parts = module_name.split('.')
     return os.path.join(transpiled_base_folder, *parts)
@@ -181,7 +182,7 @@ def make_transpiled_module_folders(script_path, module_name):
         'cache_folder': get_pycache_folder(script_path, module_name),
         'gopath_folder': get_gopath_folder(script_path, module_name),
         'transpiled_base_folder': get_transpiled_base_folder(script_path, module_name),
-        'transpiled_module_folder': get_transpiled_module_folder(script_path, fixed_keyword(module_name)),
+        'transpiled_module_folder': get_transpiled_module_folder(script_path, module_name),
     }
     for role, folder in needed_folders.items():
         if os.path.isfile(folder):  # 1. Need a folder. Remove the file
