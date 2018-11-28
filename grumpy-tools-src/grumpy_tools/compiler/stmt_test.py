@@ -405,15 +405,22 @@ class StatementVisitorTest(unittest.TestCase):
         print('abc', 123, end=' ')""")))
 
   def testModuleDocstring(self):
-    want = "__doc__ (unicode) is the module docstring\n"
+    want = "__doc__ (unicode) is module docstring\n"
     self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
         from __future__ import unicode_literals
         "module docstring"
-        print "__doc__ (" + type(__doc__).__name__ + ") is the " + __doc__"""
+        print "__doc__ (" + type(__doc__).__name__ + ") is " + str(__doc__)"""
+    )))
+
+  def testModuleDocstringAbsent(self):
+    want = "__doc__ (NoneType) is None\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        print "__doc__ (" + type(__doc__).__name__ + ") is " + str(__doc__)"""
     )))
 
   def testClassDocstring(self):
-    want = "Foo.__doc__ (unicode) is the class docstring\n"
+    want = "Foo.__doc__ (unicode) is class docstring\n"
     self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
         from __future__ import unicode_literals
         "module docstring"
@@ -422,12 +429,25 @@ class StatementVisitorTest(unittest.TestCase):
           "class docstring"
           pass
 
-        print "Foo.__doc__ (" + type(Foo.__doc__).__name__ + ") is the " + Foo.__doc__"""
+        print "Foo.__doc__ (" + type(Foo.__doc__).__name__ + ") is " + str(Foo.__doc__)"""
+    )))
+
+  @pytest.mark.xfail
+  def testClassDocstringAbsent(self):
+    want = "Foo.__doc__ (NoneType) is None\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+
+        class Foo(object):
+          pass
+
+        print "Foo.__doc__ (" + type(Foo.__doc__).__name__ + ") is " + str(Foo.__doc__)"""
     )))
 
   @pytest.mark.xfail
   def testFunctionDocstring(self):
-    want = "Foo.func.__doc__ (unicode) is the function docstring\n"
+    want = "Foo.func.__doc__ (unicode) is function docstring\n"
     self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
         from __future__ import unicode_literals
         "module docstring"
@@ -439,7 +459,22 @@ class StatementVisitorTest(unittest.TestCase):
             "function docstring"
             return
 
-        print "Foo.func.__doc__ (" + type(Foo.__doc__).__name__ + ") is the " + Foo.func.__doc__"""
+        print "Foo.func.__doc__ (" + type(Foo.__doc__).__name__ + ") is " + str(Foo.func.__doc__)"""
+    )))
+
+  def testFunctionDocstringAbsent(self):
+    want = "Foo.func.__doc__ (NoneType) is None\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+
+        class Foo(object):
+          "class docstring"
+
+          def func(self):
+            return
+
+        print "Foo.func.__doc__ (" + type(Foo.func.__doc__).__name__ + ") is " + str(Foo.func.__doc__)"""
     )))
 
   def testRaiseExitStatus(self):
