@@ -53,7 +53,7 @@ class StatementVisitor(algorithm.Visitor):
     self.future_node = future_node
     self.writer = util.Writer()
     self.expr_visitor = expr_visitor.ExprVisitor(self)
-    self.docstring = None
+    self._docstring = None
 
   def generic_visit(self, node):
     msg = 'node not yet implemented: {}'.format(type(node).__name__)
@@ -61,12 +61,12 @@ class StatementVisitor(algorithm.Visitor):
 
   def visit_expr(self, node):
     # Collect the 1st module string as docstring (<module>.__doc__)
-    if self.docstring is None and isinstance(node, ast.Str):
+    if self._docstring is None and isinstance(node, ast.Str):
       self._assign_docstring(node)
     return self.expr_visitor.visit(node)
 
   def _assign_docstring(self, node):
-    self.docstring = node
+    self._docstring = node
     if isinstance(self.block, block.FunctionBlock):
       ## function name <- self.block.name
       ## class or module of such function <- self.block.parent
