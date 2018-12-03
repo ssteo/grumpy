@@ -114,10 +114,15 @@ def _recursively_transpile(import_objects, ignore=None):
         continue  # Let the ImportError raise on run time
 
       # Recursively compile the discovered imports
-      main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False, ignore=ignore)
+      result = main(stream=open(imp_obj.script), modname=name, pep3147=True,
+                    recursive=True, return_gocode=False, return_deps=True,
+                    ignore=ignore)
       if name.endswith('.__init__'):
         name = name.rpartition('.__init__')[0]
-        main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False, ignore=ignore)
+        result = main(stream=open(imp_obj.script), modname=name, pep3147=True,
+                      recursive=True, return_gocode=False, return_deps=True,
+                      ignore=ignore)
+      yield result['deps']
 
 
 def _transpile(script, modname, imports, visitor, mod_block):
@@ -149,7 +154,7 @@ def _transpile(script, modname, imports, visitor, mod_block):
   return file_buffer
 
 
-def main(stream=None, modname=None, pep3147=False, recursive=False, return_result=True, ignore=None):
+def main(stream=None, modname=None, pep3147=False, recursive=False, return_gocode=True, ignore=None, return_deps=False):
   ignore = ignore or set()
   ignore.add(modname)
   script = os.path.abspath(stream.name)
@@ -163,16 +168,17 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
   will_refresh = should_refresh(stream, script, modname)
 
   deps, import_objects = _collect_deps(script, modname, pep3147_folders, from_cache=(not will_refresh))
-  imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
+  deps = set(deps)
+  imports = ''.join('\t// _ "' + _package_name(name) + '"\n' for name in deps)
 
-  if will_refresh or return_result:
+  if will_refresh or return_gocode:
     visitor, mod_block = _parse_and_visit(stream, script, modname)
     file_buffer = _transpile(script, modname, imports, visitor, mod_block)
   else:
     file_buffer = None
 
   if recursive:
-    _recursively_transpile(import_objects, ignore=ignore)
+    transitive_deps = _recursively_transpile(import_objects, ignore=ignore)
 
   if pep3147:
     new_gopath = pep3147_folders['gopath_folder']
@@ -186,10 +192,14 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
         transpiled_file.write(file_buffer.read())
       set_checksum(stream, script, modname)
 
-  if return_result:
+  result = {}
+  if return_gocode:
     assert file_buffer, "Wrong logic paths. 'file_buffer' should be available here!"
     file_buffer.seek(0)
-    return file_buffer.read()
+    result['gocode'] = file_buffer.read()
+  if return_deps:
+    result['deps'] = frozenset(deps.union(*transitive_deps))
+  return result
 
 
 def _package_name(modname):

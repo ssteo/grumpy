@@ -28,6 +28,11 @@ import sys
 import sysconfig
 from pkg_resources import resource_filename, Requirement, DistributionNotFound
 
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
+
 from grumpy_tools.compiler import util
 from grumpy_tools.vendor import pythonparser
 from grumpy_tools.vendor.pythonparser import algorithm
@@ -282,6 +287,7 @@ def calculate_transitive_deps(modname, script, gopath):
   return deps
 
 
+@lru_cache()
 def find_script(dirname, name, main=False, use_grumpy_stdlib=True):
   if use_grumpy_stdlib and _GRUMPY_STDLIB_PATH and dirname in _CPYTHON_STDLIB_PATHS:
     # Grumpy stdlib have preference over CPython stdlib

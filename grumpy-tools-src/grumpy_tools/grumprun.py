@@ -111,11 +111,12 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
 
     # Compile the dummy script to Go using grumpc.
     with open(os.path.join(mod_dir, 'module.go'), 'w+') as dummy_file:
-      transpiled = grumpc.main(stream, modname=modname, pep3147=True, recursive=True)
+      result = grumpc.main(stream, modname=modname, pep3147=True, recursive=True, return_deps=True)
+      transpiled, deps = result['gocode'], result['deps']
       dummy_file.write(transpiled)
 
     # Make sure traceback is available in all Python binaries.
-    names = set(['traceback'])
+    names = sorted(set(['traceback']).union(deps))
     go_main = os.path.join(workdir, 'main.go')
     package = grumpc._package_name(modname)
     imports = ''.join('\t_ "' + grumpc._package_name(name) + '"\n' for name in names)
