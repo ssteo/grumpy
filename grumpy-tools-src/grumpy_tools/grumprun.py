@@ -52,7 +52,7 @@ func main() {
 """)
 
 
-def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
+def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True, go_action='run'):
   assert pep3147, 'It is no longer optional'
   assert (stream is None and modname) or (stream.name and not modname)
 
@@ -122,8 +122,16 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
     with open(go_main, 'w') as f:
       f.write(module_tmpl.substitute(package=package, imports=imports))
     logger.info('`go run` GOPATH=%s', os.environ['GOPATH'])
-    logger.debug('Starting subprocess: `go run %s`', go_main)
-    return subprocess.Popen('go run ' + go_main, shell=True).wait()
+    if go_action == 'run':
+      subprocess_cmd = 'go run ' + go_main
+    elif go_action == 'build':
+      subprocess_cmd = 'go build ' + go_main
+    elif go_action == 'debug':
+      subprocess_cmd = 'dlv debug --listen=:2345 --log ' + go_main
+    else:
+      raise NotImplementedError('Go action "%s" not implemented' % go_action)
+    logger.debug('Starting subprocess: `%s`', subprocess_cmd)
+    return subprocess.Popen(subprocess_cmd, shell=True).wait()
   finally:
     if 'pep3147_folders' in locals():
       if clean_tempfolder:
