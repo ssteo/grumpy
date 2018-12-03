@@ -89,7 +89,10 @@ type Function struct {
 // number of arguments are provided, populating *args and **kwargs if
 // necessary, etc.
 func NewFunction(c *Code, globals *Dict) *Function {
-	return &Function{Object{typ: FunctionType, dict: NewDict()}, nil, c.name, c, globals}
+	d := newStringDict(map[string]*Object{
+		"__doc__": None,
+	})
+	return &Function{Object{typ: FunctionType, dict: d}, nil, c.name, c, globals}
 }
 
 // newBuiltinFunction returns a function object with the given name that

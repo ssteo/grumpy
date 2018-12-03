@@ -244,6 +244,7 @@ func newModule(name, filename string) *Module {
 		"__file__":    NewStr(filename).ToObject(),
 		"__name__":    NewStr(name).ToObject(),
 		"__package__": NewStr(pkgName).ToObject(),
+		"__doc__":     None,
 	})
 	return &Module{Object: Object{typ: ModuleType, dict: d}}
 }
