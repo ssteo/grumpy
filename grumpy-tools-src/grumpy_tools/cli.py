@@ -47,7 +47,7 @@ def transpile(script=None, modname=None, pep3147=False):
     """
     _ensure_gopath(raises=False)
 
-    output = grumpc.main(stream=script, modname=modname, pep3147=pep3147)
+    output = grumpc.main(stream=script, modname=modname, pep3147=pep3147)['gocode']
     click.echo(output)
     sys.exit(0)
 
@@ -56,9 +56,11 @@ def transpile(script=None, modname=None, pep3147=False):
 @click.argument('file', required=False, type=click.File('rb'))
 @click.option('-c', '--cmd', help='Program passed in as string')
 @click.option('-m', '-modname', '--modname', help='Run run library module as a script')
+@click.option('--go-action', default='run', type=click.Choice(['run', 'build', 'debug']),
+              help='Action of the Go compilation')
 @click.option('--keep-main', is_flag=True,
               help='Do not clear the temporary folder containing the transpilation result of main script')
-def run(file=None, cmd=None, modname=None, keep_main=False, pep3147=True):
+def run(file=None, cmd=None, modname=None, keep_main=False, pep3147=True, go_action='run'):
     _ensure_gopath()
 
     if modname:
@@ -81,7 +83,8 @@ def run(file=None, cmd=None, modname=None, keep_main=False, pep3147=True):
         stream.seek(0)
         stream.name = '__main__.py'
 
-    result = grumprun.main(stream=stream, modname=modname, pep3147=pep3147, clean_tempfolder=(not keep_main))
+    result = grumprun.main(stream=stream, modname=modname, pep3147=pep3147,
+                           clean_tempfolder=(not keep_main), go_action=go_action)
     sys.exit(result)
 
 

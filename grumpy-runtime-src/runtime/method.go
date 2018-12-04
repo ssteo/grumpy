@@ -123,7 +123,11 @@ func methodNew(f *Frame, t *Type, args Args, _ KWArgs) (*Object, *BaseException)
 	if raised != nil {
 		return nil, raised
 	}
-	method := &Method{Object{typ: MethodType}, function, self, class, functionName}
+
+	d := newStringDict(map[string]*Object{
+		"__doc__": None,
+	})
+	method := &Method{Object{typ: MethodType, dict: d}, function, self, class, functionName}
 	return method.ToObject(), nil
 }
 

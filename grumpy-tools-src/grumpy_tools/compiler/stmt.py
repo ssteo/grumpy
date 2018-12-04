@@ -20,6 +20,7 @@ from __future__ import unicode_literals
 
 import string
 import textwrap
+from itertools import ifilter
 
 from grumpy_tools.compiler import block
 from grumpy_tools.compiler import expr
@@ -53,13 +54,23 @@ class StatementVisitor(algorithm.Visitor):
     self.future_node = future_node
     self.writer = util.Writer()
     self.expr_visitor = expr_visitor.ExprVisitor(self)
+    self._docstring = None
 
   def generic_visit(self, node):
     msg = 'node not yet implemented: {}'.format(type(node).__name__)
     raise util.ParseError(node, msg)
 
   def visit_expr(self, node):
+    # Collect the 1st module string as docstring (<module>.__doc__)
+    if self._docstring is None and isinstance(node, ast.Str):
+      if not isinstance(self.block, block.FunctionBlock):
+        self._assign_docstring(node)
     return self.expr_visitor.visit(node)
+
+  def _assign_docstring(self, node):
+    self._docstring = node
+    doc_assign = ast.Assign(loc=node.loc, targets=[ast.Name(id='__doc__')], value=node)
+    self.visit_Assign(doc_assign)
 
   def visit_Assert(self, node):
     self._write_py_context(node.lineno)
@@ -225,6 +236,18 @@ class StatementVisitor(algorithm.Visitor):
     self._write_py_context(node.lineno + len(node.decorator_list))
     func = self.visit_function_inline(node)
     self.block.bind_var(self.writer, node.name, func.expr)
+
+    # Docstring should be the 1st statement (expression), if exists
+    first_expr = node.body[0]
+    if isinstance(first_expr, ast.Expr) and isinstance(first_expr.value, ast.Str):
+      docstring = first_expr.value
+      doc_assign = ast.Assign(
+        loc=docstring.loc,
+        targets=[ast.Attribute(value=ast.Name(id=node.name), attr='__doc__')],
+        value=docstring,
+      )
+      self.visit_Assign(doc_assign)
+
     while node.decorator_list:
       decorator = node.decorator_list.pop()
       wrapped = ast.Name(id=node.name)
