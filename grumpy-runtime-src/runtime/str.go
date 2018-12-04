@@ -1182,12 +1182,12 @@ func strMod(f *Frame, v, args *Object) (*Object, *BaseException) {
 			}
 			buf.WriteString(val)
 		case "c":
-		    if value.isInstance(IntType) {
-		        val = string(toIntUnsafe(value).Value())
-		    } else {
-		        val = toStrUnsafe(value).Value()
-		    }
-		    buf.WriteString(val)
+			if value.isInstance(IntType) {
+				val = string(toIntUnsafe(value).Value())
+			} else {
+				val = toStrUnsafe(value).Value()
+			}
+			buf.WriteString(val)
 		case "%":
 			val = "%"
 			if fieldWidth > 0 {
