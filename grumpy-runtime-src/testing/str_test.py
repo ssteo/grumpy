@@ -369,3 +369,6 @@ assert '3'.zfill(LongIntType()) == '03'
 assert '%o' % 8 == '10'
 assert '%o' % -8 == '-10'
 assert '%o %o' % (8, -8) == '10 -10'
+
+assert '%c' % 107 == 'k'
+assert '%c' % 'k' == 'k'
