@@ -26,6 +26,16 @@ from grumpy_tools.compiler import util
 from pythonparser import algorithm
 from pythonparser import ast
 
+try:
+  long           # Python 2
+except NameError:
+  long = int     # Python 3
+
+try:
+  unicode        # Python 2
+except NameError:
+  unicode = str  # Python 3
+
 
 class ExprVisitor(algorithm.Visitor):
   """Builds and returns a Go expression representing the Python nodes."""

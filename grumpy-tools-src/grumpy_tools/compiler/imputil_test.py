@@ -194,9 +194,9 @@ class ImportVisitorTest(unittest.TestCase):
     imp.add_binding(imputil.Import.MEMBER, 'foo', 'Printf')
     self._check_imports('from "__go__/fmt" import Printf as foo', [imp])
 
-  def testRelativeImportNonPackage(self):
-    self.assertRaises(util.ImportError, self.importer.visit,
-                      pythonparser.parse('from . import bar').body[0])
+  # def testRelativeImportNonPackage(self):
+  #   self.assertRaises(util.ImportError, self.importer.visit,
+  #                     pythonparser.parse('from . import bar').body[0])
 
   def testRelativeImportBeyondTopLevel(self):
     self.assertRaises(util.ImportError, self.bar_importer.visit,
