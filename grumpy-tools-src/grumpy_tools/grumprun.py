@@ -37,6 +37,27 @@ from . import grumpc
 
 logger = logging.getLogger(__name__)
 
+TRACEBACK_DEPENDENCIES = [
+  '__go__/grumpy',
+  '__go__/io/ioutil',
+  '__go__/os',
+  '__go__/path/filepath',
+  '__go__/reflect',
+  '__go__/runtime',
+  '__go__/sync',
+  '__go__/syscall',
+  '__go__/time',
+  '__go__/unicode',
+  '_syscall',
+  'linecache',
+  'os',
+  'os/path',
+  'stat',
+  'sys',
+  'traceback',
+  'types',
+]
+
 module_tmpl = string.Template("""\
 package main
 import (
@@ -52,7 +73,7 @@ func main() {
 """)
 
 
-def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
+def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True, go_action='run'):
   assert pep3147, 'It is no longer optional'
   assert (stream is None and modname) or (stream.name and not modname)
 
@@ -111,28 +132,32 @@ def main(stream=None, modname=None, pep3147=False, clean_tempfolder=True):
 
     # Compile the dummy script to Go using grumpc.
     with open(os.path.join(mod_dir, 'module.go'), 'w+') as dummy_file:
-      transpiled = grumpc.main(stream, modname=modname, pep3147=True, recursive=True)
+      result = grumpc.main(stream, modname=modname, pep3147=True, recursive=True, return_deps=True)
+      transpiled, deps = result['gocode'], result['deps']
       dummy_file.write(transpiled)
 
     # Make sure traceback is available in all Python binaries.
-    names = set(['traceback'])
+    names = sorted(set(['traceback'] + TRACEBACK_DEPENDENCIES).union(deps))
+
     go_main = os.path.join(workdir, 'main.go')
-    package = _package_name(modname)
-    imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in names)
+    package = grumpc._package_name(modname)
+    imports = ''.join('\t_ "' + grumpc._package_name(name) + '"\n' for name in names)
     with open(go_main, 'w') as f:
       f.write(module_tmpl.substitute(package=package, imports=imports))
     logger.info('`go run` GOPATH=%s', os.environ['GOPATH'])
-    logger.debug('Starting subprocess: `go run %s`', go_main)
-    return subprocess.Popen('go run ' + go_main, shell=True).wait()
+    if go_action == 'run':
+      subprocess_cmd = 'go run ' + go_main
+    elif go_action == 'build':
+      subprocess_cmd = 'go build ' + go_main
+    elif go_action == 'debug':
+      subprocess_cmd = 'dlv debug --listen=:2345 --log ' + go_main
+    else:
+      raise NotImplementedError('Go action "%s" not implemented' % go_action)
+    logger.debug('Starting subprocess: `%s`', subprocess_cmd)
+    return subprocess.Popen(subprocess_cmd, shell=True).wait()
   finally:
     if 'pep3147_folders' in locals():
       if clean_tempfolder:
         shutil.rmtree(pep3147_folders['cache_folder'], ignore_errors=True)
       else:
         logger.warning('not cleaning the temporary pycache folder: %s', pep3147_folders['cache_folder'])
-
-
-def _package_name(modname):
-  if modname.startswith('__go__/'):
-    return '__python__/' + modname
-  return '__python__/' + modname.replace('.', '/')

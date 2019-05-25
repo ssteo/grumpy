@@ -412,8 +412,8 @@ func setCompare(f *Frame, op compareOp, v *setBase, w *Object) (*Object, *BaseEx
 			return GetBool(!result).ToObject(), nil
 		}
 	}
-	for entry := iter.next(); entry != nil; entry = iter.next() {
-		contains, raised := s2.contains(f, entry.key)
+	for key, _ := iter.next(); key != nil; key, _ = iter.next() {
+		contains, raised := s2.contains(f, key)
 		if raised != nil {
 			return nil, raised
 		}

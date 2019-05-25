@@ -33,14 +33,16 @@ from .compiler import block
 from .compiler import imputil
 from .compiler import stmt
 from .compiler import util
-from .vendor import pythonparser
-from .pep_support.pep3147pycache import make_transpiled_module_folders, should_refresh, set_checksum
+from .compiler.parser import patch_pythonparser
+import pythonparser
+from .pep_support.pep3147pycache import make_transpiled_module_folders, should_refresh, set_checksum, fixed_keyword
 from . import pydeps
 
 logger = logging.getLogger(__name__)
 
 
 def _parse_and_visit(stream, script, modname):
+  patch_pythonparser()
   gopath = os.environ['GOPATH']
 
   stream.seek(0)
@@ -98,19 +100,31 @@ def _collect_deps(script, modname, pep3147_folders, from_cache=False, update_cac
   return deps, import_objects
 
 
-def _recursively_transpile(import_objects):
+def _recursively_transpile(import_objects, ignore=None):
+  ignore = ignore or set()
   for imp_obj in import_objects:
     if not imp_obj.is_native:
+      name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
+
+      if imp_obj.name in ignore:
+        # logger.debug("Already collected '%s'. Ignoring", imp_obj.name)
+        continue  # Do not do cyclic imports
+
       if not imp_obj.script:
+        logger.debug("Importing '%s' will raise ImportError", imp_obj.name)
+        ignore.add(imp_obj.name)
         continue  # Let the ImportError raise on run time
 
       # Recursively compile the discovered imports
-      # TODO: Fix cyclic imports?
-      name = imp_obj.name[1:] if imp_obj.name.startswith('.') else imp_obj.name
-      main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False)
+      result = main(stream=open(imp_obj.script), modname=name, pep3147=True,
+                    recursive=True, return_gocode=False, return_deps=True,
+                    ignore=ignore)
       if name.endswith('.__init__'):
         name = name.rpartition('.__init__')[0]
-        main(stream=open(imp_obj.script), modname=name, pep3147=True, recursive=True, return_result=False)
+        result = main(stream=open(imp_obj.script), modname=name, pep3147=True,
+                      recursive=True, return_gocode=False, return_deps=True,
+                      ignore=ignore)
+      yield result['deps']
 
 
 def _transpile(script, modname, imports, visitor, mod_block):
@@ -127,7 +141,7 @@ def _transpile(script, modname, imports, visitor, mod_block):
       \tCode = πg.NewCode("<module>", $script, nil, 0, func(πF *πg.Frame, _ []*πg.Object) (*πg.Object, *πg.BaseException) {
       \t\tvar πR *πg.Object; _ = πR
       \t\tvar πE *πg.BaseException; _ = πE""")
-  writer.write_tmpl(tmpl, package=modname.split('.')[-1],
+  writer.write_tmpl(tmpl, package=fixed_keyword(modname.split('.')[-1]),
                     script=util.go_str(script), imports=imports)
   with writer.indent_block(2):
     for s in sorted(mod_block.strings):
@@ -142,7 +156,9 @@ def _transpile(script, modname, imports, visitor, mod_block):
   return file_buffer
 
 
-def main(stream=None, modname=None, pep3147=False, recursive=False, return_result=True):
+def main(stream=None, modname=None, pep3147=False, recursive=False, return_gocode=True, ignore=None, return_deps=False):
+  ignore = ignore or set()
+  ignore.add(modname)
   script = os.path.abspath(stream.name)
   assert script and modname, 'Script "%s" or Modname "%s" is empty' % (script, modname)
 
@@ -154,16 +170,17 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
   will_refresh = should_refresh(stream, script, modname)
 
   deps, import_objects = _collect_deps(script, modname, pep3147_folders, from_cache=(not will_refresh))
-  imports = ''.join('\t_ "' + _package_name(name) + '"\n' for name in deps)
+  deps = set(deps)
+  imports = ''.join('\t// _ "' + _package_name(name) + '"\n' for name in deps)
 
-  if will_refresh or return_result:
+  if will_refresh or return_gocode:
     visitor, mod_block = _parse_and_visit(stream, script, modname)
     file_buffer = _transpile(script, modname, imports, visitor, mod_block)
   else:
     file_buffer = None
 
   if recursive:
-    _recursively_transpile(import_objects)
+    transitive_deps = _recursively_transpile(import_objects, ignore=ignore)
 
   if pep3147:
     new_gopath = pep3147_folders['gopath_folder']
@@ -177,16 +194,20 @@ def main(stream=None, modname=None, pep3147=False, recursive=False, return_resul
         transpiled_file.write(file_buffer.read())
       set_checksum(stream, script, modname)
 
-  if return_result:
+  result = {}
+  if return_gocode:
     assert file_buffer, "Wrong logic paths. 'file_buffer' should be available here!"
     file_buffer.seek(0)
-    return file_buffer.read()
+    result['gocode'] = file_buffer.read()
+  if return_deps:
+    result['deps'] = frozenset(deps.union(*transitive_deps))
+  return result
 
 
 def _package_name(modname):
   if modname.startswith('__go__/'):
     return '__python__/' + modname
-  return '__python__/' + modname.replace('.', '/')
+  return '__python__/' + fixed_keyword(modname).replace('.', '/')
 
 
 def _get_parent_packages(modname):

@@ -20,14 +20,15 @@ from __future__ import unicode_literals
 
 import string
 import textwrap
+from itertools import ifilter
 
 from grumpy_tools.compiler import block
 from grumpy_tools.compiler import expr
 from grumpy_tools.compiler import expr_visitor
 from grumpy_tools.compiler import imputil
 from grumpy_tools.compiler import util
-from grumpy_tools.vendor.pythonparser import algorithm
-from grumpy_tools.vendor.pythonparser import ast
+from pythonparser import algorithm
+from pythonparser import ast
 
 
 _NATIVE_TYPE_PREFIX = 'type_'
@@ -53,13 +54,23 @@ class StatementVisitor(algorithm.Visitor):
     self.future_node = future_node
     self.writer = util.Writer()
     self.expr_visitor = expr_visitor.ExprVisitor(self)
+    self._docstring = None
 
   def generic_visit(self, node):
     msg = 'node not yet implemented: {}'.format(type(node).__name__)
     raise util.ParseError(node, msg)
 
   def visit_expr(self, node):
+    # Collect the 1st module string as docstring (<module>.__doc__)
+    if self._docstring is None and isinstance(node, ast.Str):
+      if not isinstance(self.block, block.FunctionBlock):
+        self._assign_docstring(node)
     return self.expr_visitor.visit(node)
+
+  def _assign_docstring(self, node):
+    self._docstring = node
+    doc_assign = ast.Assign(loc=node.loc, targets=[ast.Name(id='__doc__')], value=node)
+    self.visit_Assign(doc_assign)
 
   def visit_Assert(self, node):
     self._write_py_context(node.lineno)
@@ -189,6 +200,11 @@ class StatementVisitor(algorithm.Visitor):
         msg = 'del target not implemented: {}'.format(type(target).__name__)
         raise util.ParseError(node, msg)
 
+  def visit_Exec(self, node):
+    self._write_py_context(node.lineno)
+    self.writer.write('πE = πF.RaiseType(πg.NotImplementedErrorType, "exec is not available on Grumpy. Maybe never be.")')
+    self.writer.write('continue')
+
   def visit_Expr(self, node):
     self._write_py_context(node.lineno)
     self.visit_expr(node.value).free()
@@ -220,6 +236,18 @@ class StatementVisitor(algorithm.Visitor):
     self._write_py_context(node.lineno + len(node.decorator_list))
     func = self.visit_function_inline(node)
     self.block.bind_var(self.writer, node.name, func.expr)
+
+    # Docstring should be the 1st statement (expression), if exists
+    first_expr = node.body[0]
+    if isinstance(first_expr, ast.Expr) and isinstance(first_expr.value, ast.Str):
+      docstring = first_expr.value
+      doc_assign = ast.Assign(
+        loc=docstring.loc,
+        targets=[ast.Attribute(value=ast.Name(id=node.name), attr='__doc__')],
+        value=docstring,
+      )
+      self.visit_Assign(doc_assign)
+
     while node.decorator_list:
       decorator = node.decorator_list.pop()
       wrapped = ast.Name(id=node.name)
@@ -418,13 +446,14 @@ class StatementVisitor(algorithm.Visitor):
     self._visit_loop(testfunc, node)
 
   def visit_With(self, node):
-    assert len(node.items) == 1, 'multiple items in a with not yet supported'
-    item = node.items[0]
     self._write_py_context(node.loc.line())
+
     # mgr := EXPR
-    with self.visit_expr(item.context_expr) as mgr,\
-        self.block.alloc_temp() as exit_func,\
-        self.block.alloc_temp() as value:
+    ## TODO: Get a way to __enter__ everything using `with` statement instead
+    mgr_list = [self.visit_expr(item.context_expr).__enter__() for item in node.items]
+    exit_funcs = [self.block.alloc_temp().__enter__() for mgr in mgr_list]
+    values = [self.block.alloc_temp().__enter__() for mgr in mgr_list]
+
       # The code here has a subtle twist: It gets the exit function attribute
       # from the class, not from the object. This matches the pseudo code from
       # PEP 343 exactly, and is very close to what CPython actually does.  (The
@@ -432,10 +461,13 @@ class StatementVisitor(algorithm.Visitor):
       # on the object, but skips the instance dictionary: see ceval.c and
       # lookup_maybe in typeobject.c.)
 
+    for exit_func in exit_funcs:
       # exit := type(mgr).__exit__
       self.writer.write_checked_call2(
           exit_func, 'πg.GetAttr(πF, {}.Type().ToObject(), {}, nil)',
           mgr.expr, self.block.root.intern('__exit__'))
+
+    for value in values:
       # value := type(mgr).__enter__(mgr)
       self.writer.write_checked_call2(
           value, 'πg.GetAttr(πF, {}.Type().ToObject(), {}, nil)',
@@ -444,54 +476,62 @@ class StatementVisitor(algorithm.Visitor):
           value, '{}.Call(πF, πg.Args{{{}}}, nil)',
           value.expr, mgr.expr)
 
-      finally_label = self.block.genlabel(is_checkpoint=True)
-      self.writer.write('πF.PushCheckpoint({})'.format(finally_label))
+    finally_label = self.block.genlabel(is_checkpoint=True)
+    self.writer.write('πF.PushCheckpoint({})'.format(finally_label))
+
+    for item, value in zip(node.items, values):
       if item.optional_vars:
         self._tie_target(item.optional_vars, value.expr)
-      self._visit_each(node.body)
-      self.writer.write('πF.PopCheckpoint()')
-      self.writer.write_label(finally_label)
 
-      with self.block.alloc_temp() as swallow_exc,\
-          self.block.alloc_temp('bool') as swallow_exc_bool,\
-          self.block.alloc_temp('*πg.BaseException') as exc,\
-          self.block.alloc_temp('*πg.Traceback') as tb,\
-          self.block.alloc_temp('*πg.Type') as t:
-        # temp := exit(mgr, *sys.exec_info())
-        tmpl = """\
-            $exc, $tb = nil, nil
-            if πE != nil {
-            \t$exc, $tb = πF.ExcInfo()
-            }
-            if $exc != nil {
-            \t$t = $exc.Type()
-            \tif $swallow_exc, πE = $exit_func.Call(πF, πg.Args{$mgr, $t.ToObject(), $exc.ToObject(), $tb.ToObject()}, nil); πE != nil {
-            \t\tcontinue
-            \t}
-            } else {
-            \tif $swallow_exc, πE = $exit_func.Call(πF, πg.Args{$mgr, πg.None, πg.None, πg.None}, nil); πE != nil {
-            \t\tcontinue
-            \t}
-            }
-        """
+    self._visit_each(node.body)
+    self.writer.write('πF.PopCheckpoint()')
+    self.writer.write_label(finally_label)
+
+    with self.block.alloc_temp() as swallow_exc,\
+        self.block.alloc_temp('bool') as swallow_exc_bool,\
+        self.block.alloc_temp('*πg.BaseException') as exc,\
+        self.block.alloc_temp('*πg.Traceback') as tb,\
+        self.block.alloc_temp('*πg.Type') as t:
+      # temp := exit(mgr, *sys.exec_info())
+      tmpl = """\
+          $exc, $tb = nil, nil
+          if πE != nil {
+          \t$exc, $tb = πF.ExcInfo()
+          }
+          if $exc != nil {
+          \t$t = $exc.Type()
+          \tif $swallow_exc, πE = $exit_func.Call(πF, πg.Args{$mgr, $t.ToObject(), $exc.ToObject(), $tb.ToObject()}, nil); πE != nil {
+          \t\tcontinue
+          \t}
+          } else {
+          \tif $swallow_exc, πE = $exit_func.Call(πF, πg.Args{$mgr, πg.None, πg.None, πg.None}, nil); πE != nil {
+          \t\tcontinue
+          \t}
+          }
+      """
+      for exit_func in exit_funcs:
         self.writer.write_tmpl(
             textwrap.dedent(tmpl), exc=exc.expr, tb=tb.expr, t=t.name,
             mgr=mgr.expr, exit_func=exit_func.expr,
             swallow_exc=swallow_exc.name)
 
-        # if Exc != nil && swallow_exc != true {
-        #   Raise(nil, nil)
-        # }
-        self.writer.write_checked_call2(
-            swallow_exc_bool, 'πg.IsTrue(πF, {})', swallow_exc.expr)
-        self.writer.write_tmpl(textwrap.dedent("""\
-            if $exc != nil && $swallow_exc != true {
-            \tπE = πF.Raise(nil, nil, nil)
-            \tcontinue
-            }
-            if πR != nil {
-            \tcontinue
-            }"""), exc=exc.expr, swallow_exc=swallow_exc_bool.expr)
+      # if Exc != nil && swallow_exc != true {
+      #   Raise(nil, nil)
+      # }
+      self.writer.write_checked_call2(
+          swallow_exc_bool, 'πg.IsTrue(πF, {})', swallow_exc.expr)
+      self.writer.write_tmpl(textwrap.dedent("""\
+          if $exc != nil && $swallow_exc != true {
+          \tπE = πF.Raise(nil, nil, nil)
+          \tcontinue
+          }
+          if πR != nil {
+          \tcontinue
+          }"""), exc=exc.expr, swallow_exc=swallow_exc_bool.expr)
+
+      ## TODO: Call __exit__() properly on each manually __enter__()ed object
+      # for i in mgr_list + exit_funcs + values:
+      #   i.__exit__()
 
   def visit_function_inline(self, node):
     """Returns an GeneratedExpr for a function with the given body."""
@@ -504,6 +544,13 @@ class StatementVisitor(algorithm.Visitor):
     func_block = block.FunctionBlock(self.block, node.name, func_visitor.vars,
                                      func_visitor.is_generator)
     visitor = StatementVisitor(func_block, self.future_node)
+
+    for arg in node.args.args:
+      if isinstance(arg, ast.Tuple):
+        arg_name = 'τ{}'.format(id(arg.elts))
+        with visitor.writer.indent_block():
+          visitor._tie_target(arg, util.adjust_local_name(arg_name))  # pylint: disable=protected-access
+
     # Indent so that the function body is aligned with the goto labels.
     with visitor.writer.indent_block():
       visitor._visit_each(node.body)  # pylint: disable=protected-access
@@ -519,9 +566,13 @@ class StatementVisitor(algorithm.Visitor):
       defaults = [None] * (argc - len(args.defaults)) + args.defaults
       for i, (a, d) in enumerate(zip(args.args, defaults)):
         with self.visit_expr(d) if d else expr.nil_expr as default:
+          if isinstance(a, ast.Tuple):
+            name = util.go_str('τ{}'.format(id(a.elts)))
+          else:
+            name = util.go_str(a.arg)
           tmpl = '$args[$i] = πg.Param{Name: $name, Def: $default}'
           self.writer.write_tmpl(tmpl, args=func_args.expr, i=i,
-                                 name=util.go_str(a.arg), default=default.expr)
+                                 name=name, default=default.expr)
       flags = []
       if args.vararg:
         flags.append('πg.CodeFlagVarArg')
@@ -583,6 +634,8 @@ class StatementVisitor(algorithm.Visitor):
   def _assign_target(self, target, value):
     if isinstance(target, ast.Name):
       self.block.bind_var(self.writer, target.id, value)
+    elif isinstance(target, ast.arg):
+      self.block.bind_var(self.writer, target.arg, value)
     elif isinstance(target, ast.Attribute):
       with self.visit_expr(target.value) as obj:
         self.writer.write_checked_call1(

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import sys
 
 d = {'foo': 1, 'bar': 2, 'baz': 3}
 try:
@@ -31,7 +32,10 @@ assert d['foo'] == 5
 l = []
 for k in d:
   l.append(k)
-assert l == ['baz', 'foo', 'bar', 'qux']
+if hasattr(sys, "goversion"):
+  assert l == ['foo', 'bar', 'baz', 'qux']
+else:
+  assert l == ['baz', 'foo', 'bar', 'qux']
 
 try:
   for k in d:

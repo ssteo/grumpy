@@ -28,9 +28,10 @@ from grumpy_tools.compiler import imputil
 from grumpy_tools.compiler import shard_test
 from grumpy_tools.compiler import stmt
 from grumpy_tools.compiler import util
-from grumpy_tools.vendor import pythonparser
-from grumpy_tools.vendor.pythonparser import ast
+import pythonparser
+from pythonparser import ast
 
+import pytest
 
 class StatementVisitorTest(unittest.TestCase):
 
@@ -243,6 +244,30 @@ class StatementVisitorTest(unittest.TestCase):
           print a, b
         foo('bar', 'baz')""")))
 
+  def testFunctionDefWithTupleArgs(self):
+    self.assertEqual((0, "('bar', 'baz')\n"), _GrumpRun(textwrap.dedent("""\
+        def foo((a, b)):
+          print(a, b)
+        foo(('bar', 'baz'))""")))
+
+  def testFunctionDefWithNestedTupleArgs(self):
+    self.assertEqual((0, "('bar', 'baz', 'qux')\n"), _GrumpRun(textwrap.dedent("""\
+        def foo(((a, b), c)):
+          print(a, b, c)
+        foo((('bar', 'baz'), 'qux'))""")))
+
+  def testFunctionDefWithMultipleTupleArgs(self):
+    self.assertEqual((0, "('bar', 'baz')\n"), _GrumpRun(textwrap.dedent("""\
+        def foo(((a, ), (b, ))):
+          print(a, b)
+        foo((('bar',), ('baz', )))""")))
+
+  def testFunctionDefTupleArgsInLambda(self):
+    self.assertEqual((0, "[(3, 2), (4, 3), (12, 1)]\n"), _GrumpRun(textwrap.dedent("""\
+        c = {12: 1, 3: 2, 4: 3}
+        top = sorted(c.items(), key=lambda (k,v): v)
+        print (top)""")))
+
   def testFunctionDefGenerator(self):
     self.assertEqual((0, "['foo', 'bar']\n"), _GrumpRun(textwrap.dedent("""\
         def gen():
@@ -379,6 +404,79 @@ class StatementVisitorTest(unittest.TestCase):
         print('abc', 123, sep='x')
         print('abc', 123, end=' ')""")))
 
+  def testModuleDocstring(self):
+    want = "__doc__ (unicode) is module docstring\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+        print "__doc__ (" + type(__doc__).__name__ + ") is " + str(__doc__)"""
+    )))
+
+  def testModuleDocstringAbsent(self):
+    want = "__doc__ (NoneType) is None\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        print "__doc__ (" + type(__doc__).__name__ + ") is " + str(__doc__)"""
+    )))
+
+  def testClassDocstring(self):
+    want = "Foo.__doc__ (unicode) is class docstring\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+
+        class Foo(object):
+          "class docstring"
+          pass
+
+        print "Foo.__doc__ (" + type(Foo.__doc__).__name__ + ") is " + str(Foo.__doc__)"""
+    )))
+
+  @pytest.mark.xfail
+  def testClassDocstringAbsent(self):
+    want = "Foo.__doc__ (NoneType) is None\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+
+        class Foo(object):
+          pass
+
+        print "Foo.__doc__ (" + type(Foo.__doc__).__name__ + ") is " + str(Foo.__doc__)"""
+    )))
+
+  @pytest.mark.xfail
+  def testFunctionDocstring(self):
+    want = "Foo.func.__doc__ (unicode) is function docstring\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+
+        class Foo(object):
+          "class docstring"
+
+          def func(self):
+            "function docstring"
+            return
+
+        print "Foo.func.__doc__ (" + type(Foo.__doc__).__name__ + ") is " + str(Foo.func.__doc__)"""
+    )))
+
+  def testFunctionDocstringAbsent(self):
+    want = "Foo.func.__doc__ (NoneType) is None\n"
+    self.assertEqual((0, want), _GrumpRun(textwrap.dedent("""\
+        from __future__ import unicode_literals
+        "module docstring"
+
+        class Foo(object):
+          "class docstring"
+
+          def func(self):
+            return
+
+        print "Foo.func.__doc__ (" + type(Foo.func.__doc__).__name__ + ") is " + str(Foo.func.__doc__)"""
+    )))
+
   def testRaiseExitStatus(self):
     self.assertEqual(1, _GrumpRun('raise Exception')[0])
 
@@ -505,6 +603,19 @@ class StatementVisitorTest(unittest.TestCase):
             raise RuntimeError
         except RuntimeError:
           print 3
+        """)))
+
+  def testWithAsMultiple(self):
+    self.assertEqual((0, '1 2 3\n1 2 3\n'),
+                     _GrumpRun(textwrap.dedent("""\
+        class ContextManager(object):
+          def __enter__(self):
+            return (1, (2, 3))
+          def __exit__(self, *args):
+            pass
+        with ContextManager() as [x, (y, z)], ContextManager() as [x2, (y2, z2)]:
+          print x, y, z
+          print x2, y2, z2
         """)))
 
   def testWithAs(self):

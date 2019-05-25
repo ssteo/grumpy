@@ -21,20 +21,47 @@ from __future__ import unicode_literals
 
 import collections
 import functools
+import logging
 import os
 import os.path
 import sys
+import sysconfig
+from pkg_resources import resource_filename, Requirement, DistributionNotFound
 
-from grumpy_tools.compiler import util
-from grumpy_tools.vendor import pythonparser
-from grumpy_tools.vendor.pythonparser import algorithm
-from grumpy_tools.vendor.pythonparser import ast
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
+
+from grumpy_tools.compiler import util, parser
+import pythonparser
+from pythonparser import algorithm
+from pythonparser import ast
 
 try:
   xrange          # Python 2
 except NameError:
   xrange = range  # Python 3
 
+logger = logging.getLogger(__name__)
+
+
+def _get_grumpy_stdlib():
+    try:
+        runtime_gopath = resource_filename(
+            Requirement.parse('grumpy-runtime'),
+            'grumpy_runtime/data/gopath',
+        )
+    except DistributionNotFound:
+        return None
+    return os.path.join(os.path.sep, runtime_gopath, 'src/__python__')
+
+_GRUMPY_STDLIB_PATH = _get_grumpy_stdlib()
+
+_CPYTHON_STDLIB_PATHS = (
+  [sysconfig.get_path('platstdlib') + sysconfig.get_path('stdlib')]
+  + sysconfig.get_config_vars('LIBDEST', 'DESTLIB', 'BINLIBDEST')
+)
 
 _NATIVE_MODULE_PREFIX = '__go__/'
 
@@ -58,6 +85,20 @@ class Import(object):
     self.script = script
     self.is_native = is_native
     self.bindings = []
+
+  def __repr__(self):
+    if self.bindings:
+      bind_type = self.bindings[0].bind_type
+      if bind_type == Import.MODULE:
+        bind_type = 'MODULE'
+      elif bind_type == Import.MEMBER:
+        bind_type = 'MEMBER'
+      elif bind_type == Import.STAR:
+        bind_type = 'STAR'
+    else:
+      bind_type = 'NONE'
+    repr_ = '<Import %s:%s>' % (self.name, bind_type.lower())
+    return repr_
 
   def add_binding(self, bind_type, alias, value):
     self.bindings.append(Import.Binding(bind_type, alias, value))
@@ -116,7 +157,7 @@ class Importer(algorithm.Visitor):
         raise util.ImportError(node, 'invalid syntax on wildcard import')
 
       # Imported name is * (star). Will bind __all__ the module contents.
-      imp = self._resolve_import(node, node.module)
+      imp = self._resolve_import(node, node.module, allow_error=True)
       imp.add_binding(Import.STAR, '*', imp.name.count('.'))
       return [imp]
 
@@ -147,7 +188,7 @@ class Importer(algorithm.Visitor):
       except (util.ImportError, AttributeError):
         # A member (not a submodule) is being imported, so bind it.
         if not member_imp:
-          member_imp = resolver(node, node.module)
+          member_imp = resolver(node, node.module, allow_error=True)
           imports.append(member_imp)
         member_imp.add_binding(Import.MEMBER, asname, alias.name)
       else:
@@ -169,7 +210,7 @@ class Importer(algorithm.Visitor):
       return Import(modname, '')
     raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
 
-  def _resolve_relative_import(self, level, node, modname):
+  def _resolve_relative_import(self, level, node, modname, allow_error=False):
     if not self.package_dir:
       raise util.ImportError(node, 'attempted relative import in non-package')
     uplevel = level - 1
@@ -179,7 +220,7 @@ class Importer(algorithm.Visitor):
     dirname = os.path.normpath(os.path.join(
         self.package_dir, *(['..'] * uplevel)))
     script = find_script(dirname, modname or '__init__')
-    if not script:
+    if not script and not allow_error:
       raise util.ImportError(node, 'no such module: {} (script: {})'.format(modname, self.script))
     parts = self.package_name.split('.')
     return Import('.'.join(parts[:len(parts)-uplevel] + ([modname] if modname else [])), script)
@@ -206,6 +247,7 @@ class _ImportCollector(algorithm.Visitor):
 
 
 def collect_imports(modname, script, gopath, package_dir=''):
+  parser.patch_pythonparser()
   with open(script) as py_file:
     py_contents = py_file.read()
   mod = pythonparser.parse(py_contents)
@@ -246,7 +288,15 @@ def calculate_transitive_deps(modname, script, gopath):
   return deps
 
 
-def find_script(dirname, name, main=False):
+@lru_cache()
+def find_script(dirname, name, main=False, use_grumpy_stdlib=True):
+  if use_grumpy_stdlib and _GRUMPY_STDLIB_PATH and dirname in _CPYTHON_STDLIB_PATHS:
+    # Grumpy stdlib have preference over CPython stdlib
+    result = find_script(_GRUMPY_STDLIB_PATH, name, main=main, use_grumpy_stdlib=False)
+    if result:
+      logger.debug("Package '%s' is from Grumpy stdlib", name)
+      return result
+
   prefix = os.path.join(dirname, name.replace('.', os.sep))
   script = prefix + '.py'
   if os.path.isfile(script):
